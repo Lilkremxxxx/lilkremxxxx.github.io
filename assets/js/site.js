@@ -68,6 +68,9 @@ function renderHero() {
   const social = state.content.social;
   const current = (state.content.projects.items || []).find((project) => project.badge);
   const base = state.content.education.schools?.[0]?.location || '';
+  // The CV button follows the active CV unless the admin gave it another link (the old repo path counts as "CV").
+  const customHref = hero.primaryCta?.href;
+  const primaryHref = !customHref || customHref === '/Nguyen_Nhat_Bang_AI_Engineer.pdf' ? social.cvUrl : customHref;
   $('#hero').innerHTML = `
     <div class="hero__grid">
       <div class="hero__inner">
@@ -75,7 +78,7 @@ function renderHero() {
         <p class="hero__role" data-hero>${esc(t(hero.role))}</p>
         <p class="hero__claim" data-hero>${esc(t(hero.claim))}</p>
         <div class="hero__actions" data-hero>
-          ${anchor(hero.primaryCta?.href || social.cvUrl, 'btn btn--primary', `<span class="icon" aria-hidden="true">download</span>${esc(t(hero.primaryCta?.label))}`)}
+          ${anchor(primaryHref, 'btn btn--primary', `<span class="icon" aria-hidden="true">download</span>${esc(t(hero.primaryCta?.label))}`)}
           ${anchor(hero.secondaryCta?.href || '/contact', 'btn', `${esc(t(hero.secondaryCta?.label))}<span class="icon" aria-hidden="true">arrow_forward</span>`)}
         </div>
       </div>
@@ -591,35 +594,58 @@ const smoothstep = (edge0, edge1, x) => {
 };
 
 // Signature: the field morphs with the scroll position. The last 40% of each section blends into the next shape.
+// Section geometry is measured once and re-measured only when the home view changes size, so the scroll
+// path does no DOM queries or layout reads.
+let sectionGeometry = null;
+function measureSections() {
+  sectionGeometry = $$('#view-home > section')
+    .filter((section) => !section.hidden)
+    .map((section) => ({ id: section.id, shape: section.dataset.shape || 'lorenz', top: section.offsetTop, height: section.offsetHeight }));
+}
+const invalidateSections = () => {
+  sectionGeometry = null;
+};
+if ('ResizeObserver' in window) new ResizeObserver(invalidateSections).observe($('#view-home'));
+
 function updateSceneFromScroll() {
   const scene = state.scene;
   if (!scene || state.route?.name !== 'home') return;
-  const sections = $$('#view-home > section').filter((section) => !section.hidden);
+  if (!sectionGeometry) measureSections();
+  const sections = sectionGeometry;
   if (!sections.length) return;
   const center = window.scrollY + window.innerHeight * 0.5;
   let index = 0;
   sections.forEach((section, i) => {
-    if (section.offsetTop <= center) index = i;
+    if (section.top <= center) index = i;
   });
   const current = sections[index];
   const next = sections[index + 1] || current;
-  const progress = (center - current.offsetTop) / Math.max(current.offsetHeight, 1);
+  const progress = (center - current.top) / Math.max(current.height, 1);
   const t = next === current ? 0 : smoothstep(0.6, 1, progress);
-  scene.scrub(current.dataset.shape || 'lorenz', next.dataset.shape || 'lorenz', t);
+  scene.scrub(current.shape, next.shape, t);
   const a = SECTION_FOCUS[current.id] || SECTION_FOCUS.hero;
   const b = SECTION_FOCUS[next.id] || a;
   scene.setFocus({ x: a.x + (b.x - a.x) * t, intensity: a.intensity + (b.intensity - a.intensity) * t });
 }
 
 let scrollFrame = 0;
+let sheenAngle = 0;
+const finePointer = window.matchMedia('(pointer: fine)').matches;
 function onScrollFrame() {
-  cancelAnimationFrame(scrollFrame);
+  if (scrollFrame) return;
   scrollFrame = requestAnimationFrame(() => {
+    scrollFrame = 0;
     updateSceneFromScroll();
     updateReadingProgress();
-    // Glass rims catch the light from a slowly rotating angle as the page moves.
+    // Glass rims catch the light from a slowly rotating angle as the page moves. Desktop only, and only in
+    // whole-degree steps: every change restyles all lenses, which touch devices pay for mid-scroll.
+    if (!finePointer) return;
     const max = Math.max(document.documentElement.scrollHeight - window.innerHeight, 1);
-    root.style.setProperty('--sheen-angle', `${(125 + (window.scrollY / max) * 70).toFixed(1)}deg`);
+    const angle = Math.round(125 + (window.scrollY / max) * 70);
+    if (angle !== sheenAngle) {
+      sheenAngle = angle;
+      root.style.setProperty('--sheen-angle', `${angle}deg`);
+    }
   });
 }
 
@@ -712,6 +738,8 @@ const REVEALS = {
 function setupReveals(ids = Object.keys(REVEALS)) {
   if (!motion || !window.ScrollTrigger) return;
   gsap.registerPlugin(window.ScrollTrigger);
+  // The mobile URL bar resizes the viewport while scrolling; re-measuring every trigger then causes jank.
+  window.ScrollTrigger.config({ ignoreMobileResize: true });
   ids.forEach((id) => {
     state.revealCtx[id]?.revert();
     delete state.revealCtx[id];

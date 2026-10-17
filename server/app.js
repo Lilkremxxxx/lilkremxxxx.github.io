@@ -23,6 +23,10 @@ const MAX_SECTION_BYTES = 200 * 1024;
 const UPLOAD_DIR = process.env.UPLOAD_DIR || join(dirname(fileURLToPath(import.meta.url)), '..', 'uploads');
 const UPLOAD_MAX_BYTES = 6 * 1024 * 1024;
 const UPLOAD_NAME_PATTERN = /^[a-z0-9][a-z0-9-]{0,80}\.(png|jpg|webp|gif)$/;
+const CV_DIR = join(UPLOAD_DIR, 'cv');
+const CV_MAX_BYTES = 10 * 1024 * 1024;
+// <yyyymmdd>-<6 hex>--<download name>.pdf ; the part after "--" becomes the downloaded file name.
+const CV_NAME_PATTERN = /^\d{8}-[0-9a-f]{6}--[A-Za-z0-9_-]{1,80}\.pdf$/;
 const IMAGE_TYPES = {
   'image/png': 'png',
   'image/jpeg': 'jpg',
@@ -560,11 +564,66 @@ app.use('/uploads', express.static(UPLOAD_DIR, {
   dotfiles: 'ignore',
   maxAge: '30d',
   immutable: true,
-  setHeaders(res) {
+  setHeaders(res, filePath) {
     res.set('X-Content-Type-Options', 'nosniff');
     res.set('Cross-Origin-Resource-Policy', 'cross-origin');
+    const name = filePath.split('/').pop();
+    // CV versions download under their clean name instead of opening a versioned file name.
+    if (CV_NAME_PATTERN.test(name)) res.set('Content-Disposition', `attachment; filename="${name.split('--')[1]}"`);
   }
 }));
+
+// ---------- CV / resume ----------
+
+app.post(
+  '/api/admin/cv',
+  requireAdmin,
+  express.raw({ type: 'application/pdf', limit: CV_MAX_BYTES }),
+  async (req, res) => {
+    if (!Buffer.isBuffer(req.body) || req.body.toString('ascii', 0, 5) !== '%PDF-') {
+      return res.status(415).json({ error: 'The file is not a PDF' });
+    }
+    const downloadName = String(req.query.name || 'CV')
+      .replace(/\.pdf$/i, '')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^A-Za-z0-9_-]+/g, '_')
+      .replace(/^_+|_+$/g, '')
+      .slice(0, 80) || 'CV';
+    const stamp = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+    const name = `${stamp}-${randomBytes(3).toString('hex')}--${downloadName}.pdf`;
+    await mkdir(CV_DIR, { recursive: true });
+    await writeFile(join(CV_DIR, name), req.body, { flag: 'wx' });
+    res.status(201).json({ item: { name, path: `/uploads/cv/${name}`, size: req.body.length } });
+  }
+);
+
+app.get('/api/admin/cv', requireAdmin, async (_req, res) => {
+  let names = [];
+  try {
+    names = (await readdir(CV_DIR)).filter((name) => CV_NAME_PATTERN.test(name));
+  } catch (error) {
+    if (error.code !== 'ENOENT') throw error;
+  }
+  const items = await Promise.all(names.map(async (name) => {
+    const info = await stat(join(CV_DIR, name));
+    return { name, downloadName: name.split('--')[1], path: `/uploads/cv/${name}`, size: info.size, createdAt: info.mtime };
+  }));
+  items.sort((a, b) => b.createdAt - a.createdAt);
+  res.json({ items });
+});
+
+app.delete('/api/admin/cv/:name', requireAdmin, async (req, res) => {
+  const { name } = req.params;
+  if (!CV_NAME_PATTERN.test(name)) return res.status(400).json({ error: 'Invalid file name' });
+  try {
+    await unlink(join(CV_DIR, name));
+  } catch (error) {
+    if (error.code === 'ENOENT') return res.status(404).json({ error: 'File not found' });
+    throw error;
+  }
+  res.status(204).end();
+});
 
 app.post(
   '/api/admin/uploads',
@@ -620,7 +679,7 @@ app.use((_req, res) => {
 
 app.use((error, _req, res, _next) => {
   if (error instanceof HttpError) return res.status(error.status).json({ error: error.message });
-  if (error?.type === 'entity.too.large') return res.status(413).json({ error: 'File or request is too large (images up to 6 MB)' });
+  if (error?.type === 'entity.too.large') return res.status(413).json({ error: 'File or request is too large (images up to 6 MB, CV up to 10 MB)' });
   if (error?.code === '23505') return res.status(409).json({ error: 'A post with this slug already exists' });
   console.error(error);
   res.status(500).json({ error: 'Database operation failed' });

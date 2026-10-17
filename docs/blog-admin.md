@@ -37,7 +37,9 @@ Changing the password revokes every issued login token.
 - **Tags**: rename (renaming onto an existing name merges the two) or delete.
 - **Home page**: one form per section (Hero, About & experience, Projects, Skills, Education, Contact, Links & CV).
   Each text has English and optional Vietnamese. Saving makes it live immediately; "Reset to default" returns to the built-in text in `assets/js/content.js`.
-- Images: add files to `assets/blog/` in the repo and push, then use `/assets/blog/<file>` as the URL.
+- **Media**: upload images from the Media page or straight from an image block / cover field. Files live on the mini PC in `uploads/` (outside git — back it up).
+- **Resume / CV**: upload a new PDF from any device; it becomes the active CV immediately (nav Resume, hero Download CV, contact). Older versions stay listed so you can switch back, or return to the PDF stored in the repo.
+- **Blog listing**: choose pinned posts (in order) and posts hidden from the lists.
 
 ## Local development
 

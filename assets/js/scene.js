@@ -325,8 +325,11 @@ export async function startScene(canvas, { reducedMotion = false } = {}) {
 
   const isNarrow = window.matchMedia('(max-width: 760px)').matches;
   const finePointer = window.matchMedia('(pointer: fine)').matches;
+  // Touch devices (phones and tablets) get the light tier regardless of width: the glass above the canvas
+  // re-blurs every frame while scrolling, so GPU headroom matters more than point count there.
+  const touch = window.matchMedia('(pointer: coarse)').matches;
   const lowPower = (navigator.hardwareConcurrency || 4) <= 2 || navigator.connection?.saveData === true;
-  const count = lowPower ? 2600 : isNarrow ? 4200 : 8000;
+  const count = lowPower ? 2400 : isNarrow ? 2800 : touch ? 3600 : 8000;
 
   let renderer;
   try {
@@ -334,7 +337,7 @@ export async function startScene(canvas, { reducedMotion = false } = {}) {
   } catch (_error) {
     return null;
   }
-  const maxDpr = lowPower ? 1 : isNarrow ? 1.5 : 1.75;
+  const maxDpr = lowPower ? 1 : touch ? 1.25 : 1.75;
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, maxDpr));
   renderer.setClearColor(0x000000, 0);
 
@@ -425,6 +428,12 @@ export async function startScene(canvas, { reducedMotion = false } = {}) {
     dollyStart: -1e9,
     baseZ: 7.5,
     running: false,
+    width: 0,
+    height: 0,
+    frame: 0,
+    scrollUntil: 0,
+    slowFrames: 0,
+    sampledFrames: 0,
     lastTime: performance.now(),
     // Calm mode (reading routes): slower clock, weaker glow, no waves or pointer effects.
     calm: false,
@@ -464,9 +473,14 @@ export async function startScene(canvas, { reducedMotion = false } = {}) {
     state.nextWave = now + 5200 + Math.random() * 2000;
   }
 
-  function resize() {
+  function resize(force = false) {
     const width = canvas.clientWidth || window.innerWidth;
     const height = canvas.clientHeight || window.innerHeight;
+    // Mobile browsers fire resize while the URL bar slides; the canvas (100lvh) keeps its size, so skip the
+    // costly buffer reallocation unless something actually changed.
+    if (!force && width === state.width && height === state.height) return;
+    state.width = width;
+    state.height = height;
     renderer.setSize(width, height, false);
     camera.aspect = width / height;
     uniforms.uAspect.value = width / height;
@@ -532,10 +546,31 @@ export async function startScene(canvas, { reducedMotion = false } = {}) {
     renderer.render(scene, camera);
   }
 
+  // Adaptive quality: if frames keep running long, step the pixel ratio down (never back up in a visit).
+  function trackFrame(frameMs) {
+    state.sampledFrames += 1;
+    if (frameMs > 24) state.slowFrames += 1;
+    if (state.sampledFrames < 90) return;
+    const ratio = renderer.getPixelRatio();
+    if (state.slowFrames > 45 && ratio > 0.85) {
+      const next = Math.max(0.75, ratio - 0.25);
+      renderer.setPixelRatio(next);
+      uniforms.uPixelRatio.value = next;
+      resize(true);
+    }
+    state.sampledFrames = 0;
+    state.slowFrames = 0;
+  }
+
   function loop(now) {
     if (!state.running) return;
-    renderFrame(now);
     requestAnimationFrame(loop);
+    state.frame += 1;
+    // While a touch device is mid-scroll, draw every other frame to leave the GPU to the compositor.
+    if (touch && now < state.scrollUntil && state.frame % 2) return;
+    const frameMs = now - state.lastTime;
+    renderFrame(now);
+    if (frameMs < 250 && now >= state.scrollUntil) trackFrame(frameMs);
   }
 
   function start() {
@@ -588,7 +623,12 @@ export async function startScene(canvas, { reducedMotion = false } = {}) {
   window.addEventListener('pointermove', onPointer, { passive: true });
   window.addEventListener('pointerdown', onDown, { passive: true });
   document.addEventListener('visibilitychange', onVisibility);
-  window.addEventListener('resize', resize);
+  const onResize = () => resize();
+  const onScroll = () => {
+    state.scrollUntil = performance.now() + 180;
+  };
+  window.addEventListener('resize', onResize);
+  window.addEventListener('scroll', onScroll, { passive: true });
 
   resize();
   // Boot: the field unfolds from a dense core into the Lorenz attractor.
@@ -658,7 +698,8 @@ export async function startScene(canvas, { reducedMotion = false } = {}) {
       window.removeEventListener('pointermove', onPointer);
       window.removeEventListener('pointerdown', onDown);
       document.removeEventListener('visibilitychange', onVisibility);
-      window.removeEventListener('resize', resize);
+      window.removeEventListener('resize', onResize);
+      window.removeEventListener('scroll', onScroll);
       geometry.dispose();
       material.dispose();
       renderer.dispose();

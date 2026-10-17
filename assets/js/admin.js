@@ -20,7 +20,7 @@ const BLOCK_LABELS = { paragraph: 'Paragraph', heading: 'Heading', image: 'Image
 
 const ctaFields = [
   { key: 'label', label: 'Label', type: 'i18n' },
-  { key: 'href', label: 'Link', type: 'url', hint: 'A page like /contact, a file like /Nguyen_Nhat_Bang_AI_Engineer.pdf, or a full URL.' }
+  { key: 'href', label: 'Link', type: 'url', hint: 'A page like /contact or a full URL. Leave empty to use the active CV (Resume / CV page).' }
 ];
 
 const SECTIONS = {
@@ -343,6 +343,7 @@ function routesList() {
     ['#/site/blog', 'Blog listing'],
     ['#/tags', 'Tags'],
     ['#/media', 'Media'],
+    ['#/cv', 'Resume / CV'],
     ...HOME_SECTIONS.map(([key, section]) => [`#/site/${key}`, `Home · ${section.label}`])
   ];
 }
@@ -361,6 +362,7 @@ function renderShell() {
           <a class="side-link" href="#/site/blog" data-route="site/blog"><span class="icon" aria-hidden="true">web</span>Blog listing</a>
           <a class="side-link" href="#/tags" data-route="tags"><span class="icon" aria-hidden="true">sell</span>Tags</a>
           <a class="side-link" href="#/media" data-route="media"><span class="icon" aria-hidden="true">image</span>Media</a>
+          <a class="side-link" href="#/cv" data-route="cv"><span class="icon" aria-hidden="true">description</span>Resume / CV</a>
         </nav>
         <nav class="side-group" aria-label="Home page">
           <h2>Home page</h2>
@@ -439,6 +441,7 @@ function route() {
   if (parts[0] === 'posts' && parts[1] === 'edit' && parts[2]) return showPostEditor(decodeURIComponent(parts.slice(2).join('/')));
   if (parts[0] === 'tags') return showTags();
   if (parts[0] === 'media') return showMedia();
+  if (parts[0] === 'cv') return showCv();
   if (parts[0] === 'site' && SECTIONS[parts[1]]) return showSection(parts[1]);
   return showPosts();
 }
@@ -1018,14 +1021,12 @@ function formatSize(bytes) {
   return bytes > 1024 * 1024 ? `${(bytes / 1024 / 1024).toFixed(1)} MB` : `${Math.max(1, Math.round(bytes / 1024))} KB`;
 }
 
-async function uploadFile(file) {
-  if (!UPLOAD_TYPES.includes(file.type)) throw new Error(`${file.name}: only PNG, JPG, WebP or GIF`);
-  if (file.size > 6 * 1024 * 1024) throw new Error(`${file.name}: larger than 6 MB`);
+async function postFile(endpoint, file, contentType) {
   let response;
   try {
-    response = await fetch(`${API_BASE}/api/admin/uploads?name=${encodeURIComponent(file.name)}`, {
+    response = await fetch(`${API_BASE}${endpoint}?name=${encodeURIComponent(file.name)}`, {
       method: 'POST',
-      headers: { Authorization: `Bearer ${app.session?.token}`, 'Content-Type': file.type },
+      headers: { Authorization: `Bearer ${app.session?.token}`, 'Content-Type': contentType },
       body: file
     });
   } catch (_error) {
@@ -1042,11 +1043,18 @@ async function uploadFile(file) {
   return payload.item;
 }
 
+function uploadFile(file) {
+  if (!UPLOAD_TYPES.includes(file.type)) return Promise.reject(new Error(`${file.name}: only PNG, JPG, WebP or GIF`));
+  if (file.size > 6 * 1024 * 1024) return Promise.reject(new Error(`${file.name}: larger than 6 MB`));
+  return postFile('/api/admin/uploads', file, file.type);
+}
+
 // target: { kind: 'cover' } | { kind: 'block', index } | { kind: 'media' }
 function pickFiles(target) {
   uploadTarget = target;
   const picker = $('#file-picker');
   picker.multiple = target.kind === 'media';
+  picker.accept = target.kind === 'cv' ? 'application/pdf,.pdf' : UPLOAD_TYPES.join(',');
   picker.value = '';
   picker.click();
 }
@@ -1056,6 +1064,10 @@ async function handlePickedFiles(picker) {
   const target = uploadTarget;
   uploadTarget = null;
   if (!files.length || !target) return;
+  if (target.kind === 'cv') {
+    uploadCv(files[0]);
+    return;
+  }
   toast(files.length > 1 ? `Uploading ${files.length} images…` : `Uploading ${files[0].name}…`);
   for (const file of files) {
     try {
@@ -1112,6 +1124,93 @@ async function showMedia() {
           </figcaption>
         </figure>`).join('')}
     </div>` : '<div class="table lens"><div class="empty"><strong>No images yet</strong>Upload images here or straight from an image block in a post.</div></div>';
+}
+
+// ---------------------------------------------------------------- Resume / CV
+
+const REPO_CV = '/Nguyen_Nhat_Bang_AI_Engineer.pdf';
+
+// The active CV is social.cvUrl: every Resume / Download CV button on the site follows it.
+async function setActiveCv(url) {
+  await loadSite(true);
+  const social = { ...mergeSections(app.site).social, cvUrl: url };
+  await api('/api/site/social', { method: 'PUT', body: { data: social } });
+  app.site = null;
+}
+
+async function uploadCv(file) {
+  const isPdf = file.type === 'application/pdf' || /\.pdf$/i.test(file.name);
+  if (!isPdf) return toast(`${file.name}: choose a PDF file`, 'error');
+  if (file.size > 10 * 1024 * 1024) return toast(`${file.name}: larger than 10 MB`, 'error');
+  toast(`Uploading ${file.name}…`);
+  try {
+    const item = await postFile('/api/admin/cv', file, 'application/pdf');
+    await setActiveCv(mediaUrl(item.path));
+    toast('New CV is live — every Resume button now downloads it');
+    if (app.view === 'cv') showCv();
+  } catch (error) {
+    if (error.status !== 401) toast(error.message, 'error');
+  }
+}
+
+async function showCv() {
+  app.view = 'cv';
+  document.title = 'Resume / CV — Admin';
+  markActiveNav('cv');
+  setTopbar({
+    title: 'Resume / CV',
+    sub: 'Upload a PDF from any device; the site switches to it immediately. No git push needed.',
+    actions: '<button class="btn btn--primary" type="button" data-action="cv-upload"><span class="icon" aria-hidden="true">upload</span>Upload new CV</button>'
+  });
+  $('#content').innerHTML = '<div class="card lens"><span class="spinner" aria-hidden="true"></span></div>';
+  let versions;
+  try {
+    const [, list] = await Promise.all([loadSite(true), api('/api/admin/cv')]);
+    versions = list.items || [];
+  } catch (error) {
+    if (error.status === 401) return;
+    $('#content').innerHTML = `<div class="table lens"><div class="empty"><strong>CV settings could not be loaded</strong>${esc(error.message)}</div></div>`;
+    return;
+  }
+  const active = mergeSections(app.site).social.cvUrl || REPO_CV;
+  const activeVersion = versions.find((item) => active.endsWith(item.path));
+  $('#content').innerHTML = `
+    <div class="editor__form" style="max-width:880px">
+      <section class="card lens">
+        <h2>Active CV</h2>
+        <div class="row" style="padding:0">
+          <div class="row__main">
+            <a class="row__title" href="${attr(active)}" target="_blank" rel="noopener">${esc(activeVersion ? activeVersion.downloadName : active.split('/').pop())}</a>
+            <div class="row__meta">
+              <span class="status status--published">live</span>
+              <span class="meta">${activeVersion ? `Uploaded ${esc(formatDate(activeVersion.createdAt, true))} · ${esc(formatSize(activeVersion.size))}` : active === REPO_CV ? 'File in the repository' : esc(active)}</span>
+            </div>
+          </div>
+          <span class="row__actions">
+            <a class="btn btn--sm" href="${attr(active)}" target="_blank" rel="noopener"><span class="icon" aria-hidden="true">north_east</span>Open</a>
+            ${active !== REPO_CV ? '<button class="btn btn--sm" type="button" data-action="cv-use-repo">Use repo file</button>' : ''}
+          </span>
+        </div>
+        <p class="field-hint">Used by the nav Resume button, the hero Download CV button (when its link is empty) and the contact section.</p>
+      </section>
+      <section class="card lens">
+        <h2>Uploaded versions</h2>
+        ${versions.length ? `<div class="table" style="padding:0">${versions.map((item) => {
+          const isActive = item === activeVersion;
+          return `
+            <div class="row" data-cv="${attr(item.name)}" data-url="${attr(mediaUrl(item.path))}">
+              <div class="row__main">
+                <span class="row__title">${esc(item.downloadName)}</span>
+                <div class="row__meta">${isActive ? '<span class="status status--published">active</span>' : ''}<span class="meta">${esc(formatDate(item.createdAt, true))} · ${esc(formatSize(item.size))}</span></div>
+              </div>
+              <span class="row__actions">
+                <a class="icon-btn" href="${attr(mediaUrl(item.path))}" target="_blank" rel="noopener" aria-label="Download"><span class="icon" aria-hidden="true">north_east</span></a>
+                ${isActive ? '' : '<button class="btn btn--sm" type="button" data-action="cv-activate">Make active</button><button class="icon-btn icon-btn--danger" type="button" data-action="ask-delete-cv" aria-label="Delete version"><span class="icon" aria-hidden="true">delete</span></button>'}
+              </span>
+            </div>`;
+        }).join('')}</div>` : '<p class="field-hint">No uploads yet. The site uses the PDF stored in the repository until you upload one.</p>'}
+      </section>
+    </div>`;
 }
 
 // ---------------------------------------------------------------- Home sections
@@ -1528,6 +1627,35 @@ function bindEvents() {
       case 'upload':
         pickFiles(button.dataset.uploadTarget === 'cover' ? { kind: 'cover' } : { kind: 'block', index });
         break;
+      case 'cv-upload':
+        pickFiles({ kind: 'cv' });
+        break;
+      case 'cv-activate':
+      case 'cv-use-repo': {
+        const url = action === 'cv-use-repo' ? REPO_CV : button.closest('[data-cv]').dataset.url;
+        try {
+          await setActiveCv(url);
+          toast('Active CV switched');
+          showCv();
+        } catch (error) {
+          if (error.status !== 401) toast(error.message, 'error');
+        }
+        break;
+      }
+      case 'ask-delete-cv':
+        askInline(button.closest('.row__actions'), 'Delete this version?', 'confirm-delete-cv');
+        break;
+      case 'confirm-delete-cv': {
+        const name = button.closest('[data-cv]').dataset.cv;
+        try {
+          await api(`/api/admin/cv/${encodeURIComponent(name)}`, { method: 'DELETE' });
+          toast('Version deleted');
+          showCv();
+        } catch (error) {
+          if (error.status !== 401) toast(error.message, 'error');
+        }
+        break;
+      }
       case 'media-upload':
         pickFiles({ kind: 'media' });
         break;

@@ -11,7 +11,8 @@ export const SITE_DEFAULTS = {
       en: 'Building scalable LLM architectures, computer vision systems, and autonomous agents for next-generation digital ecosystems.',
       vn: 'Xây dựng kiến trúc LLM có khả năng mở rộng, hệ thống thị giác máy tính và các AI agent tự trị cho hệ sinh thái kỹ thuật số thế hệ mới.'
     },
-    primaryCta: { label: { en: 'Download CV', vn: 'Tải CV' }, href: '/Nguyen_Nhat_Bang_AI_Engineer.pdf' },
+    // Empty href = the active CV (social.cvUrl, managed on the admin Resume / CV page).
+    primaryCta: { label: { en: 'Download CV', vn: 'Tải CV' }, href: '' },
     secondaryCta: { label: { en: 'Contact me', vn: 'Liên hệ' }, href: '/contact' }
   },
   about: {
