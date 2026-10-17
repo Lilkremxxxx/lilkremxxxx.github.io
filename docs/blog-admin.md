@@ -37,9 +37,23 @@ Changing the password revokes every issued login token.
 - **Tags**: rename (renaming onto an existing name merges the two) or delete.
 - **Home page**: one form per section (Hero, About & experience, Projects, Skills, Education, Contact, Links & CV).
   Each text has English and optional Vietnamese. Saving makes it live immediately; "Reset to default" returns to the built-in text in `assets/js/content.js`.
-- **Media**: upload images from the Media page or straight from an image block / cover field. Files live on the mini PC in `uploads/` (outside git — back it up).
+- **Media**: upload images from the Media page or straight from an image block / cover field. Files live on the mini PC in `uploads/` (outside git, included in the daily backup).
 - **Resume / CV**: upload a new PDF from any device; it becomes the active CV immediately (nav Resume, hero Download CV, contact). Older versions stay listed so you can switch back, or return to the PDF stored in the repo.
 - **Blog listing**: choose pinned posts (in order) and posts hidden from the lists.
+
+## Backups
+
+`systemd/blog-backup.timer` runs `scripts/backup.sh` every day at 03:30 (and on the next boot if the machine was off):
+a `pg_dump` of the blog database plus a tarball of `uploads/` (images and CV versions) in `~/backups/nhatbang-web/`, kept for 14 days.
+
+```bash
+cp systemd/blog-backup.* ~/.config/systemd/user/ && systemctl --user daemon-reload && systemctl --user enable --now blog-backup.timer
+bash scripts/backup.sh                                   # run one now
+pg_restore --clean --if-exists --no-owner -d "$DATABASE_URL" ~/backups/nhatbang-web/db-<stamp>.dump
+tar -xzf ~/backups/nhatbang-web/uploads-<stamp>.tar.gz -C .   # restores ./uploads
+```
+
+Backups live on the same disk as the data; copy `~/backups/nhatbang-web/` elsewhere for protection against disk failure.
 
 ## Local development
 

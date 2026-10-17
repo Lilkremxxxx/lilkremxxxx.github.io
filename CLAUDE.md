@@ -29,7 +29,7 @@ Browser ──► GitHub Pages (static, nguồn: nhánh gh-pages do workflow bui
 
 ### 2. Admin — `admin/index.html` + `assets/js/admin.js` + `assets/css/admin.css`
 - Đăng nhập mật khẩu → token có hạn (12h) lưu `localStorage['admin_session']`. Hash routes: `#/posts`, `#/posts/new`, `#/posts/edit/:slug`, `#/tags`, `#/media`, `#/site/:key` (gồm `#/site/blog` = Blog listing).
-- **Ảnh**: upload trong block ảnh, ô cover, hoặc trang Media → lưu trên mini PC ở `uploads/` (gitignored, đổi bằng `UPLOAD_DIR`), phục vụ tại `https://blog-api.verbaa.pp.ua/uploads/<file>`; URL tuyệt đối được ghi vào bài. **Thư mục `uploads/` không nằm trong git — cần backup riêng.**
+- **Ảnh**: upload trong block ảnh, ô cover, hoặc trang Media → lưu trên mini PC ở `uploads/` (gitignored, đổi bằng `UPLOAD_DIR`), phục vụ tại `https://blog-api.verbaa.pp.ua/uploads/<file>`; URL tuyệt đối được ghi vào bài. Thư mục `uploads/` không nằm trong git; được backup hằng ngày cùng database (xem Trạng thái vận hành).
 - **CV/Resume** (`#/cv`): upload PDF (≤10MB, kiểm tra `%PDF-`) → lưu `uploads/cv/<yyyymmdd>-<hex>--<Ten_file>.pdf`, phục vụ với `Content-Disposition: attachment` theo tên sau `--`; trang admin tự đặt `social.cvUrl` = URL bản mới. Mọi nút Resume/Download CV đọc `social.cvUrl` (nút hero dùng nó khi link trống hoặc là đường dẫn PDF cũ trong repo). "Use repo file" quay về `/Nguyen_Nhat_Bang_AI_Engineer.pdf`.
 - Form section sinh từ schema `SECTIONS` trong `admin.js` — **thêm field vào trang chủ thì sửa cả `SITE_DEFAULTS` (content.js), `SECTIONS` (admin.js) và hàm render trong site.js.**
 - `?api=` chỉ có hiệu lực trên localhost (chặn phishing đổi API khi đăng nhập).
@@ -97,6 +97,7 @@ GSAP dùng bản vanilla qua CDN (không có skill React/Vue vì dự án không
 
 ## Trạng thái vận hành (2026-10-17)
 - Database `nhatbang-web` đã tạo lại từ `schema.sql` + `seed.sql`, owner là user riêng `nhatbang_web` (không phải superuser). Blog không còn dùng user `cloud`.
+- **Backup tự động**: `blog-backup.timer` (systemd user, 03:30 hằng ngày, chạy bù khi máy tắt) gọi `scripts/backup.sh` → `~/backups/nhatbang-web/`: `db-<stamp>.dump` (pg_dump custom) + `uploads-<stamp>.tar.gz` (ảnh + CV), giữ 14 ngày. Unit nằm trong `systemd/`. Đã thử khôi phục thành công (2026-10-17). Backup cùng ổ đĩa — chưa có bản sao ngoài máy.
 - Mật khẩu admin lưu ở `~/.config/blog/admin-password.txt` (quyền 600, ngoài repo). Đổi bằng `npm run admin:set-password` rồi restart `blog-backend`.
 - `ADMIN_API_KEY` đã đổi; key cũ bị lộ không còn hiệu lực.
 - Postgres (container `postgres`, `~/docker/docker-compose.yml`) chỉ còn nghe trên `127.0.0.1` và IP Tailscale `100.82.138.69` (đã bỏ cổng công khai IPv4/IPv6). User service `postgres-tailscale-guard` khởi động lại container sau khi Tailscale có IP lúc boot.

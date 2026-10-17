@@ -1,0 +1,11 @@
+[Unit]
+Description=Daily blog backup (database + uploads)
+
+[Timer]
+OnCalendar=*-*-* 03:30:00
+RandomizedDelaySec=10min
+# Run on the next boot if the machine was off at 03:30.
+Persistent=true
+
+[Install]
+WantedBy=timers.target

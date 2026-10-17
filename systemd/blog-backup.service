@@ -1,0 +1,11 @@
+[Unit]
+Description=Back up the blog database and uploaded files
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/home/nhatbang/nhatbang_web/Lilkremxxx.github.io
+ExecStart=/usr/bin/bash /home/nhatbang/nhatbang_web/Lilkremxxx.github.io/scripts/backup.sh
+Nice=10
+IOSchedulingClass=idle
