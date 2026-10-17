@@ -12,11 +12,6 @@ root.classList.add('motion-armed');
 const SITE_TIMEOUT_MS = 900;
 const SECTION_ROUTES = { '/about': 'about', '/project': 'project', '/skill': 'skill', '/education': 'education', '/contact': 'contact' };
 const SECTION_PATHS = Object.fromEntries(Object.entries(SECTION_ROUTES).map(([path, id]) => [id, path]));
-const PREFERRED_ORDER = new Map([
-  ['healthcare-stroke-prediction', 0],
-  ['lung-cancer-aff-cpp-inference', 1]
-]);
-const HIDDEN_FROM_LISTS = new Set(['welcome-to-my-blog']);
 const SITE_TITLE = 'Nguyen Nhat Bang — AI Engineer';
 
 const state = {
@@ -26,9 +21,8 @@ const state = {
   postsPromise: null,
   route: null,
   scene: null,
-  sceneShape: 'manifold',
   activeSection: 'hero',
-  revealTriggers: [],
+  revealCtx: {},
   heroPlayed: false,
   tocHeadings: []
 };
@@ -281,12 +275,15 @@ function fetchPosts() {
   return state.postsPromise;
 }
 
+// Order and visibility come from the admin's "Blog listing" settings.
 function orderedPosts() {
+  const featured = new Map((state.content.blog?.featured || []).map((slug, index) => [slug, index]));
+  const hidden = new Set(state.content.blog?.hidden || []);
   return [...(state.posts || [])]
-    .filter((post) => !HIDDEN_FROM_LISTS.has(post.slug))
+    .filter((post) => !hidden.has(post.slug))
     .sort((a, b) => {
-      const rankA = PREFERRED_ORDER.get(a.slug) ?? 999;
-      const rankB = PREFERRED_ORDER.get(b.slug) ?? 999;
+      const rankA = featured.get(a.slug) ?? 999;
+      const rankB = featured.get(b.slug) ?? 999;
       if (rankA !== rankB) return rankA - rankB;
       return new Date(b.publishedAt || 0) - new Date(a.publishedAt || 0);
     });
@@ -496,17 +493,23 @@ async function handleRoute({ initial = false } = {}) {
     await swapView('home');
     if (!wasHome) ScrollTrigger?.refresh();
     scrollToSection(route.section, !initial && wasHome);
-    setSceneForSection(route.section || state.activeSection || 'hero');
+    if (!wasHome && previous) {
+      // Coming back from the blog: dive and morph to the section in view, then scroll takes over.
+      const section = document.getElementById(route.section || state.activeSection) || $('#hero');
+      state.scene?.dive();
+      state.scene?.setShape(section.dataset.shape || 'manifold');
+    }
+    requestAnimationFrame(updateSceneFromScroll);
     updateNav(route.section || state.activeSection);
   } else if (route.name === 'blog') {
     document.title = `${ui('blog_title')} — ${state.content.hero.name}`;
     await swapView('blog');
-    setScene('haze', { x: 0, intensity: 0.5 });
+    setRouteScene({ x: 0, intensity: 0.55 });
     updateNav('blog');
     showBlogList();
   } else {
     await swapView('post');
-    setScene('haze', { x: 0, intensity: 0.35 });
+    setRouteScene({ x: 0, intensity: 0.4 });
     updateNav('blog');
     showPost(route.slug);
   }
@@ -544,8 +547,8 @@ function observeSections() {
     if (state.route?.name !== 'home') return;
     entries.forEach((entry) => {
       if (!entry.isIntersecting) return;
+      if (state.activeSection !== entry.target.id) state.scene?.wave();
       state.activeSection = entry.target.id;
-      setSceneForSection(entry.target.id);
       updateNav(entry.target.id);
     });
   }, { rootMargin: '-45% 0px -50% 0px' });
@@ -554,17 +557,59 @@ function observeSections() {
 
 // ---------------------------------------------------------------- Scene
 
-function setScene(shape, focus) {
-  state.sceneShape = shape;
-  state.sceneFocus = focus;
-  state.scene?.setShape(shape);
+// Where the field sits and how bright it is per section (x in world units; content side decides it).
+const SECTION_FOCUS = {
+  hero: { x: 2.3, intensity: 1 },
+  about: { x: 1.9, intensity: 0.95 },
+  project: { x: 0, intensity: 0.9 },
+  skill: { x: 0, intensity: 0.9 },
+  education: { x: 0, intensity: 0.9 },
+  writing: { x: 0, intensity: 0.85 },
+  contact: { x: 1.9, intensity: 0.95 }
+};
+
+function setRouteScene(focus) {
+  state.scene?.dive();
+  state.scene?.setShape('haze');
   state.scene?.setFocus(focus);
 }
 
-function setSceneForSection(id) {
-  const section = document.getElementById(id) || $('#hero');
-  const shape = section?.dataset.shape || 'manifold';
-  setScene(shape, { x: id === 'hero' ? 2.3 : 2.1, intensity: id === 'hero' ? 1 : 0.8 });
+const smoothstep = (edge0, edge1, x) => {
+  const t = Math.min(Math.max((x - edge0) / (edge1 - edge0), 0), 1);
+  return t * t * (3 - 2 * t);
+};
+
+// Signature: the field morphs with the scroll position. The last 40% of each section blends into the next shape.
+function updateSceneFromScroll() {
+  const scene = state.scene;
+  if (!scene || state.route?.name !== 'home') return;
+  const sections = $$('#view-home > section').filter((section) => !section.hidden);
+  if (!sections.length) return;
+  const center = window.scrollY + window.innerHeight * 0.5;
+  let index = 0;
+  sections.forEach((section, i) => {
+    if (section.offsetTop <= center) index = i;
+  });
+  const current = sections[index];
+  const next = sections[index + 1] || current;
+  const progress = (center - current.offsetTop) / Math.max(current.offsetHeight, 1);
+  const t = next === current ? 0 : smoothstep(0.6, 1, progress);
+  scene.scrub(current.dataset.shape || 'manifold', next.dataset.shape || 'manifold', t);
+  const a = SECTION_FOCUS[current.id] || SECTION_FOCUS.hero;
+  const b = SECTION_FOCUS[next.id] || a;
+  scene.setFocus({ x: a.x + (b.x - a.x) * t, intensity: a.intensity + (b.intensity - a.intensity) * t });
+}
+
+let scrollFrame = 0;
+function onScrollFrame() {
+  cancelAnimationFrame(scrollFrame);
+  scrollFrame = requestAnimationFrame(() => {
+    updateSceneFromScroll();
+    updateReadingProgress();
+    // Glass rims catch the light from a slowly rotating angle as the page moves.
+    const max = Math.max(document.documentElement.scrollHeight - window.innerHeight, 1);
+    root.style.setProperty('--sheen-angle', `${(125 + (window.scrollY / max) * 70).toFixed(1)}deg`);
+  });
 }
 
 function startSceneWhenIdle() {
@@ -573,8 +618,13 @@ function startSceneWhenIdle() {
     const controller = await startScene($('#field'), { reducedMotion: reduceMotion });
     if (!controller) return;
     state.scene = controller;
-    controller.setShape(state.sceneShape);
-    controller.setFocus(state.sceneFocus || { x: 2.3, intensity: 1 });
+    if (state.route?.name === 'home') {
+      controller.setFocus(SECTION_FOCUS.hero);
+      // The boot morph runs first; scroll scrubbing resumes when it finishes.
+      setTimeout(updateSceneFromScroll, 2700);
+    } else {
+      setRouteScene({ x: 0, intensity: state.route?.name === 'post' ? 0.4 : 0.55 });
+    }
     root.classList.add('scene-ready');
   };
   const idle = window.requestIdleCallback || ((callback) => setTimeout(callback, 200));
@@ -614,35 +664,60 @@ function revealList(elements) {
   gsap.from(elements, { y: 18, autoAlpha: 0, duration: 0.6, stagger: 0.06, ease: 'expo.out', clearProps: 'all' });
 }
 
-function setupReveals() {
-  state.revealTriggers.forEach((trigger) => trigger.kill());
-  state.revealTriggers = [];
+// One-shot scroll reveals, one GSAP context per section so a section can be rebuilt (new posts, language
+// switch, admin content) without re-running from() tweens on elements that are still mid-reveal or hidden.
+const REVEALS = {
+  about: (add, section) => {
+    const timeline = $('.timeline', section);
+    add($('.timeline__rail', section), { scaleY: 0, duration: 1.2, ease: 'expo.out' }, timeline);
+    add($$('.timeline__item', section), { x: -14, autoAlpha: 0, duration: 0.7, stagger: 0.09, ease: 'expo.out' }, timeline);
+  },
+  project: (add, section) => {
+    $$('.project', section).forEach((card) => add(card, {
+      y: 56,
+      autoAlpha: 0,
+      clipPath: 'inset(14% 0% 0% 0% round 32px)',
+      duration: 1,
+      ease: 'expo.out',
+      clearProps: 'clipPath'
+    }, card, 'top 88%'));
+  },
+  skill: (add, section) => {
+    const panel = $('.skills', section);
+    add($$('.skill-row', section), { y: 20, autoAlpha: 0, duration: 0.6, stagger: 0.08, ease: 'expo.out' }, panel);
+    add($$('.chip', section), { scale: 0.9, autoAlpha: 0, duration: 0.4, stagger: 0.02, ease: 'back.out(2)' }, panel, 'top 75%');
+  },
+  education: (add, section) => {
+    add($$('.panel', section), { y: 36, autoAlpha: 0, duration: 0.8, stagger: 0.12, ease: 'expo.out' }, $('.education', section));
+  },
+  writing: (add, section) => {
+    add($$('.post-row', section), { y: 18, autoAlpha: 0, duration: 0.6, stagger: 0.06, ease: 'expo.out' }, $('.post-list', section));
+  },
+  contact: (add, section) => {
+    add($$('.contact-item', section), { x: 16, autoAlpha: 0, duration: 0.6, stagger: 0.08, ease: 'expo.out' }, $('.contact-list', section));
+  }
+};
+
+function setupReveals(ids = Object.keys(REVEALS)) {
   if (!motion || !window.ScrollTrigger) return;
   gsap.registerPlugin(window.ScrollTrigger);
-
-  const add = (target, vars, trigger = target, start = 'top 82%') => {
-    const nodes = typeof target === 'string' ? $$(target) : [].concat(target);
-    if (!nodes.length || !trigger) return;
-    const tween = gsap.from(nodes, { ...vars, scrollTrigger: { trigger, start, once: true } });
-    state.revealTriggers.push(tween.scrollTrigger);
-  };
-
-  $$('[data-reveal="head"]').forEach((head) => add(head, { y: 32, autoAlpha: 0, duration: 0.9, ease: 'expo.out' }));
-  add('#about .timeline__rail', { scaleY: 0, duration: 1.2, ease: 'expo.out' }, $('#about .timeline'));
-  add('#about .timeline__item', { x: -14, autoAlpha: 0, duration: 0.7, stagger: 0.09, ease: 'expo.out' }, $('#about .timeline'));
-  $$('#project .project').forEach((card) => add(card, {
-    y: 56,
-    autoAlpha: 0,
-    clipPath: 'inset(14% 0% 0% 0% round 32px)',
-    duration: 1,
-    ease: 'expo.out',
-    clearProps: 'clipPath'
-  }, card, 'top 88%'));
-  add('#skill .skill-row', { y: 20, autoAlpha: 0, duration: 0.6, stagger: 0.08, ease: 'expo.out' }, $('#skill .skills'));
-  add('#skill .chip', { scale: 0.9, autoAlpha: 0, duration: 0.4, stagger: 0.02, ease: 'back.out(2)' }, $('#skill .skills'), 'top 75%');
-  add('#education .panel', { y: 36, autoAlpha: 0, duration: 0.8, stagger: 0.12, ease: 'expo.out' }, $('#education .education'));
-  add('#writing .post-row', { y: 18, autoAlpha: 0, duration: 0.6, stagger: 0.06, ease: 'expo.out' }, $('#writing .post-list'));
-  add('#contact .contact-item', { x: 16, autoAlpha: 0, duration: 0.6, stagger: 0.08, ease: 'expo.out' }, $('#contact .contact-list'));
+  ids.forEach((id) => {
+    state.revealCtx[id]?.revert();
+    delete state.revealCtx[id];
+    const section = document.getElementById(id);
+    if (!section || section.hidden) return;
+    state.revealCtx[id] = gsap.context(() => {
+      const add = (targets, vars, trigger, start = 'top 82%') => {
+        const nodes = [].concat(targets).filter(Boolean);
+        if (!nodes.length || !trigger) return;
+        gsap.from(nodes, { ...vars, scrollTrigger: { trigger, start, once: true } });
+      };
+      const head = $('[data-reveal="head"]', section);
+      add(head, { y: 32, autoAlpha: 0, duration: 0.9, ease: 'expo.out' }, head);
+      REVEALS[id](add, section);
+    }, section);
+  });
+  window.ScrollTrigger.refresh();
 }
 
 // ---------------------------------------------------------------- Events
@@ -714,8 +789,11 @@ function bindEvents() {
   }, { passive: true });
 
   window.addEventListener('popstate', () => handleRoute());
-  window.addEventListener('scroll', updateReadingProgress, { passive: true });
-  window.addEventListener('resize', () => updateNav(state.route?.name === 'home' ? state.activeSection : 'blog'));
+  window.addEventListener('scroll', onScrollFrame, { passive: true });
+  window.addEventListener('resize', () => {
+    updateNav(state.route?.name === 'home' ? state.activeSection : 'blog');
+    onScrollFrame();
+  });
 }
 
 // ---------------------------------------------------------------- Boot
@@ -761,7 +839,8 @@ async function boot() {
 
   fetchPosts().then(() => {
     renderWriting();
-    setupReveals();
+    setupReveals(['writing']);
+    onScrollFrame();
   }).catch(() => {});
 }
 

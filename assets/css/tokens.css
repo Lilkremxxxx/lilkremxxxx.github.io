@@ -17,13 +17,17 @@
   --danger: #ff8a7a;
   --danger-wash: rgba(255, 110, 90, 0.12);
 
-  --glass: rgba(20, 25, 32, 0.36);
-  --glass-strong: rgba(14, 18, 24, 0.78);
-  --glass-line: rgba(255, 255, 255, 0.09);
+  /* Liquid glass: a barely-tinted pane that keeps the field's colour (saturate) but dims it (brightness)
+     so text stays readable, with a light-catching rim instead of a flat border. */
+  --glass: rgba(255, 255, 255, 0.035);
+  --glass-strong: rgba(10, 13, 18, 0.6);
+  --glass-line: rgba(255, 255, 255, 0.1);
   --glass-line-strong: rgba(255, 255, 255, 0.16);
-  --glass-blur: 12px;
-  --glass-sheen: linear-gradient(180deg, rgba(255, 255, 255, 0.07), rgba(255, 255, 255, 0) 42%);
-  --shadow-lens: 0 1px 0 rgba(255, 255, 255, 0.06) inset, 0 24px 60px -28px rgba(0, 0, 0, 0.85), 0 8px 24px -12px rgba(0, 0, 0, 0.5);
+  --glass-blur: 7px;
+  --glass-filter: blur(var(--glass-blur)) saturate(185%) brightness(0.78);
+  --glass-sheen: linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0) 38%);
+  --glass-rim: linear-gradient(var(--sheen-angle, 135deg), rgba(255, 255, 255, 0.42), rgba(255, 255, 255, 0.08) 28%, rgba(255, 255, 255, 0) 50%, rgba(168, 200, 255, 0.1) 74%, rgba(189, 255, 0, 0.22));
+  --shadow-lens: inset 0 1px 0 rgba(255, 255, 255, 0.16), inset 0 -1px 1px rgba(255, 255, 255, 0.04), inset 0 0 28px rgba(255, 255, 255, 0.025), 0 24px 60px -30px rgba(0, 0, 0, 0.85);
 
   --r-xl: 32px;
   --r-lg: 24px;
@@ -173,12 +177,27 @@ p {
 .lens {
   position: relative;
   background: var(--glass-sheen), var(--glass);
-  border: 1px solid var(--glass-line);
+  border: 1px solid transparent;
   border-radius: var(--r-lg);
   box-shadow: var(--shadow-lens);
-  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(150%);
-  backdrop-filter: blur(var(--glass-blur)) saturate(150%);
+  -webkit-backdrop-filter: var(--glass-filter);
+  backdrop-filter: var(--glass-filter);
   isolation: isolate;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+}
+
+/* Light-catching rim: a 1px gradient ring whose angle follows the scroll (--sheen-angle). */
+.lens::before {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  padding: 1px;
+  border-radius: inherit;
+  background: var(--glass-rim);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
+  pointer-events: none;
 }
 
 /* Specular highlight that follows the pointer (set --mx/--my from JS). */
@@ -199,6 +218,7 @@ p {
 }
 
 .lens--strong {
+  --glass-blur: 16px;
   background: var(--glass-sheen), var(--glass-strong);
 }
 

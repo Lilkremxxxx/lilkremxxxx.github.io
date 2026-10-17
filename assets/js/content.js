@@ -120,6 +120,11 @@ export const SITE_DEFAULTS = {
     facebookUrl: 'https://www.facebook.com/dangtimrieulop/',
     closing: { en: 'Thanks for watching my portfolio', vn: 'Cảm ơn vì đã xem portfolio' }
   },
+  // Blog listing: pinned posts show first in this order; hidden posts stay reachable by URL but leave the lists.
+  blog: {
+    featured: ['healthcare-stroke-prediction', 'lung-cancer-aff-cpp-inference'],
+    hidden: ['welcome-to-my-blog']
+  },
   social: {
     cvUrl: '/Nguyen_Nhat_Bang_AI_Engineer.pdf',
     github: 'https://github.com/Lilkremxxxx',

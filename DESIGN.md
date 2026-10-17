@@ -16,7 +16,7 @@ colors:
   danger: "#ff8a7a"
   danger-wash: "rgba(255, 110, 90, 0.12)"
   caution-amber: "#ffd27a"
-  glass: "rgba(20, 25, 32, 0.36)"
+  glass: "rgba(255, 255, 255, 0.035)"
   glass-strong: "rgba(14, 18, 24, 0.78)"
   glass-line: "rgba(255, 255, 255, 0.09)"
   glass-line-strong: "rgba(255, 255, 255, 0.16)"
@@ -263,25 +263,26 @@ The page ground is three fixed full-viewport layers:
 2. **Field** (z -2): the WebGL canvas. It fades in over 1.4s once the scene is ready.
 3. **Veil** (z -1): an ink gradient that darkens the left 48 to 72% on desktop, where text sits, and the bottom 30%. On mobile it becomes a top-to-bottom gradient. On blog and post routes it adds a 45% ink wash.
 
-Every surface above that is a **lens**. It has:
-- a white sheen gradient (7% fading to 0 by 42%) over a translucent ink fill
-- a 1px hairline edge
-- `backdrop-filter: blur(12px) saturate(150%)`
-- `isolation: isolate`
-- the lens shadow
+Every surface above that is a **lens** — liquid glass, built to show the field rather than hide it. It has:
+- a white sheen gradient (6% fading to 0 by 38%) over a near-clear 3.5% white fill
+- `backdrop-filter: blur(7px) saturate(185%) brightness(0.78)`: the field keeps its colour but is dimmed enough for text
+- a light-catching 1px **rim**: a gradient ring (`--glass-rim`, masked `::before`) from 42% white through clear to a faint blue and lime edge, whose angle (`--sheen-angle`, 125° → 195°) follows the scroll position
+- inner highlights (`inset 0 1px 0 16% white`, a faint bottom lip and a 28px inner glow) plus a deep ambient drop
+- a 1px 2px 35% black text shadow on everything inside, and `isolation: isolate`
 
 Lenses tagged `data-specular` show a 420px radial highlight on hover that follows the pointer.
 
 ### Shadow Vocabulary
-- **Lens** (`0 1px 0 rgba(255,255,255,0.06) inset, 0 24px 60px -28px rgba(0,0,0,0.85), 0 8px 24px -12px rgba(0,0,0,0.5)`): every lens. An inset top highlight plus a deep negative-spread ambient drop.
+- **Lens** (`inset 0 1px 0 rgba(255,255,255,0.16), inset 0 -1px 1px rgba(255,255,255,0.04), inset 0 0 28px rgba(255,255,255,0.025), 0 24px 60px -30px rgba(0,0,0,0.85)`): every lens. Glass edges are lit from inside, depth comes from one deep ambient drop.
 - **Primary button** (`0 1px 0 rgba(255,255,255,0.35) inset, 0 10px 24px -12px rgba(0,0,0,0.7)`; on hover `0.4` inset and `0 14px 28px -12px rgba(0,0,0,0.75)`): the lime pill's glassy top edge.
 - **Input focus** (`0 0 0 3px rgba(189,255,0,0.15)`): a lime halo with a lime border.
 - **Live pulse** (`0 0 0 0 → 10px rgba(189,255,0,0)` keyframe, 2.4s, 3 iterations): the hero availability dot. It pulses three times, then rests.
 
 ### Glass variants (blur and opacity as built)
-- **Standard lens:** fill at 36% alpha, 12px blur. Used for panels, project cards, the timeline, skills, the nav, the dock, the TOC, admin cards, the sidebar and toasts.
-- **Reading lens** (`.lens--strong`): fill at 78% alpha. Used for the blog article, the admin preview and the admin insert menu, wherever long text needs a near-opaque ground.
-- **Hero lens:** a 30% alpha fill with only 6px blur, plus a 1px 2px text shadow on its values. This is the one lens in the first viewport, kept thin so the forming manifold reads through it.
+- **Standard lens:** 3.5% white fill, 7px blur. Panels, project cards, the timeline, skills, the TOC, admin cards, the sidebar and toasts.
+- **Nav and dock:** 28% / 40% ink fill with 14px blur — they float over scrolling content, so they stay denser.
+- **Reading lens** (`.lens--strong`): 60% ink fill, 16px blur. The blog article, the admin preview and the insert menu.
+- **Hero lens:** standard fill with only 5px blur, so the forming manifold reads through it as bokeh.
 - **Buttons:** a 14px blur over a 6% white fill. Ghost buttons drop the blur.
 - **Admin topbar:** an ink gradient (92% to 75%) with 16px blur and a bottom hairline.
 
@@ -363,16 +364,21 @@ Shared by the public reader and the admin preview.
 - **Loading:** a 16px ring spinner. Public loading uses a shimmering skeleton bar (1.4s).
 
 ### The Latent Field (signature, `scene.js`)
-A three.js r170 `Points` cloud rendered with a custom `ShaderMaterial` (additive blending, no depth write) on a transparent canvas, loaded with a dynamic import during browser idle time.
-- **Points:** 6,500 on desktop, 3,200 at ≤760px, 2,200 on low-power devices (≤2 cores or Save-Data). The pixel ratio is capped at 1.75, 1.5 and 1 respectively. Points are soft round discs in Signal Blue at 62% alpha. 11% are lime "activations": 1.8× larger, at full alpha, with a sine twinkle. Depth fades distant points to 25%.
-- **Shapes:** generated deterministically (seeded PRNG) and cached. The hero is `manifold` (a trefoil-like ribbon). About is `clusters` (7 Gaussian clouds on a Fibonacci sphere). Projects is `network` (5 layers plus connecting strands). Skills is `lattice` (a jittered cubic grid). Education and Latest writing are `spiral` (a tilted 3-arm galaxy). Contact is `plane` (a gently rippled floor). Blog and post routes use `haze` (a hollow diffuse shell), at intensity 0.5 for the blog list and 0.35 for a post.
-- **Morph:** a 1.7s cubic in-out blend from the *current* positions to the target shape. Each point is staggered by its seed, and points bulge outward mid-flight. A constant gentle per-point drift, a slow 0.05 rad/s spin, a pointer-follow tilt and an eased horizontal focus offset complete it. The offset puts the field on the right on desktop (x 2.3 for the hero, 2.1 for the other sections) and centres it on mobile.
-- **Fallbacks:** rendering pauses while the tab is hidden. Reduced motion renders a single static frame per shape change. With no WebGL or a failed import, the CSS backdrop remains.
+A three.js r170 `Points` cloud with a custom `ShaderMaterial` (additive, no depth write) on a transparent canvas, loaded during browser idle time. Motion personality: **Premium-precise** — expo-out arrivals, no overshoot, sine for ambient loops.
+- **Points:** 8,000 desktop / 4,200 ≤760px / 2,600 low-power (≤2 cores or Save-Data); pixel ratio capped at 1.75 / 1.5 / 1. Each point is a bright core plus a soft halo (reads as bokeh through glass) in Signal Blue at 80% alpha; 12% are lime activations (1.8× size, sine twinkle). Shapes render at 1.25× scale on desktop. Distant points fade to 30%.
+- **Shapes:** deterministic, cached. Hero `manifold`, About `clusters`, Projects `network`, Skills `lattice`, Education and Writing `spiral`, Contact `plane`, blog/post `haze`, plus `core` for the boot.
+- **Primary — scroll-scrubbed morph:** on the home page the shape is tied to the scroll position. The last 40% of each section blends (smoothstep) into the next section's shape; the GPU lerps toward the scroll target (rate 7/s) so it never jitters. Each point is staggered by its seed and bulges outward mid-flight. The horizontal focus (x 2.3 hero, 1.9 about/contact, 0 for full-width sections) blends with the same progress.
+- **Boot:** the field unfolds from a dense `core` into the manifold over 2.4s, in step with the hero intro.
+- **Secondary — forward-pass wave:** a Gaussian signal front sweeps along x over 1.8s (sine in-out), lifting points and lighting them lime/white. It fires on every section change and every 5.2–7.2s at rest.
+- **Secondary — pointer lens:** on fine pointers, points within ~0.45 screen units of the cursor are pushed outward and brighten; the effect fades 1.4s after the pointer stops. A click or tap on empty space sends a ring ripple (1.4s).
+- **Route change:** the camera dives 1.6 units into the field and settles back (1.1s, sine) while the cloud tweens to `haze` (blog 0.55, post 0.4 intensity) or back to the current section's shape.
+- **Ambient:** per-point drift, 0.05 rad/s spin, pointer-follow tilt.
+- **Fallbacks:** paused while the tab is hidden; reduced motion snaps shapes per section with a single static frame (no wave, pointer, ripple or dive); no WebGL keeps the CSS backdrop.
 
 ### Motion choreography (`site.js`, GSAP 3.13 + ScrollTrigger + SplitText)
 - **Tokens:** `--ease-out` cubic-bezier(0.16, 1, 0.3, 1) for CSS transitions, at 140ms (quick state changes), 320ms (indicator, specular, toasts) and 560ms (veil). GSAP uses `expo.out` for arrivals and `power2.in` for exits.
 - **Hero intro:** a single timeline. The nav drops 24px and fades in over 0.9s. The name splits into masked lines and its words rise from 115% over 1.1s, staggered 0.06s. The remaining hero items rise 18px out of an 8px blur over 0.9s, staggered 0.07s. The intro waits up to 900ms for the site API and for the display font.
-- **Section reveals:** one-shot ScrollTriggers at `top 82%`, each fitted to its content:
+- **Section reveals:** one-shot ScrollTriggers at `top 82%`, built inside one `gsap.context` per section so a section can be rebuilt (posts arriving, language switch) without re-running `from()` on hidden elements:
   - heads rise 32px
   - the timeline rail draws (scaleY 0 to 1, 1.2s) while items slide in 14px from the left
   - project lenses rise 56px with an `inset(14% … round 32px)` clip-path wipe (1s, at `top 88%`)

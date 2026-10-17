@@ -45,7 +45,7 @@ body[data-route="post"] .veil {
 
 @media (max-width: 760px) {
   .veil {
-    background: linear-gradient(180deg, rgba(11, 13, 16, 0) 0%, rgba(11, 13, 16, 0.35) 45%, rgba(11, 13, 16, 0.72) 75%);
+    background: linear-gradient(180deg, rgba(11, 13, 16, 0) 0%, rgba(11, 13, 16, 0.22) 45%, rgba(11, 13, 16, 0.55) 80%);
   }
 }
 
@@ -70,6 +70,8 @@ body[data-route="post"] .veil {
 
 /* ---------- Top navigation lens ---------- */
 .site-nav {
+  --glass: rgba(14, 17, 22, 0.28);
+  --glass-blur: 14px;
   position: fixed;
   top: max(14px, env(safe-area-inset-top));
   left: 50%;
@@ -181,6 +183,8 @@ body[data-route="post"] .veil {
   }
 
   .dock {
+    --glass: rgba(14, 17, 22, 0.4);
+    --glass-blur: 14px;
     position: fixed;
     bottom: max(12px, env(safe-area-inset-bottom));
     left: 50%;
@@ -271,9 +275,8 @@ main {
 
 /* The one lens that sits over the field in the first viewport. */
 .hero__lens {
-  --glass-blur: 6px;
+  --glass-blur: 5px;
   padding: 1.25rem 1.35rem;
-  background: var(--glass-sheen), rgba(16, 20, 26, 0.3);
 }
 
 .hero__lens dd,

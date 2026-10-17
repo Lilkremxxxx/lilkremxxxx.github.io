@@ -6,7 +6,7 @@ Repo: `github.com/Lilkremxxxx/lilkremxxxx.github.io`, nhánh `main`. Thư mục 
 ## Kiến trúc (3 phần)
 
 ```
-Browser ──► GitHub Pages (static, nguồn: nhánh main /, build legacy)   index.html (site) · admin/index.html (admin) · assets/
+Browser ──► GitHub Pages (static, nguồn: nhánh gh-pages do workflow build)   index.html (site) · admin/index.html (admin) · assets/
    │
    └─fetch─► https://blog-api.verbaa.pp.ua  (Cloudflare Tunnel, unit: blog-api-verbaa-cloudflared)
                 └─► Express  server/app.js  :8787  (systemd user unit: blog-backend, chạy thẳng từ thư mục repo)
@@ -20,22 +20,25 @@ Browser ──► GitHub Pages (static, nguồn: nhánh main /, build legacy)   
 - **Deep link trên GitHub Pages:** `404.html` lưu path vào `sessionStorage['spa:redirect']`, `site.js` khôi phục.
 - **Nội dung trang chủ**: render từ `SITE_DEFAULTS` ngay lập tức, sau đó lấy `GET /api/site` (chờ tối đa 900ms trước khi chạy intro) và ghép đè từng section. API lỗi → vẫn hiện nội dung mặc định.
 - **Motion**: intro hero (SplitText), reveal riêng cho từng section (ScrollTrigger, `once`), chuyển view bằng GSAP. Mọi thứ tắt khi `prefers-reduced-motion`; nội dung không bao giờ bị ẩn nếu JS lỗi (lớp `motion-ok` + failsafe 2.5s trong `<head>`).
-- **Nền 3D (`scene.js`)**: point cloud morph giữa các hình (manifold → clusters → network → lattice → spiral → plane; `haze` cho blog) theo section đang xem (`data-shape` trên `<section>`). Tạm dừng khi tab ẩn, ít điểm hơn trên mobile/máy ≤2 nhân, khung tĩnh khi reduced-motion, không có WebGL thì dùng gradient CSS.
-- **Blog**: giữ quirk của chủ repo — code block chỉ hiện dưới heading kiểu Method/Implementation/… (`isCodeVisibleInSection`), danh sách ưu tiên `healthcare-stroke-prediction`, `lung-cancer-aff-cpp-inference` và ẩn `welcome-to-my-blog` (`PREFERRED_ORDER`, `HIDDEN_FROM_LISTS` trong `site.js`).
+- **Nền 3D (`scene.js`)**: point cloud morph **theo vị trí cuộn** (scroll-scrub, `updateSceneFromScroll()` trong site.js) giữa các hình theo `data-shape` của từng `<section>` (manifold → clusters → network → lattice → spiral → plane; `haze` cho blog; `core` lúc khởi động). Có sóng "forward pass" khi đổi section, con trỏ đẩy điểm, click tạo gợn sóng, camera "lao vào" khi đổi route. Vị trí/độ sáng từng section ở `SECTION_FOCUS`. Tạm dừng khi tab ẩn, ít điểm hơn trên mobile/máy ≤2 nhân, khung tĩnh khi reduced-motion.
+- **Kính (liquid glass)**: `.lens` gần trong suốt (3.5% trắng, `blur(7px) saturate(185%) brightness(0.78)`), viền sáng `::before` xoay theo `--sheen-angle` (site.js cập nhật khi cuộn). Nav/dock/bài đọc dùng biến `--glass`/`--glass-blur` riêng, đậm hơn để dễ đọc.
+- **Reveal khi cuộn**: mỗi section một `gsap.context` (`REVEALS` + `setupReveals(ids)`). Render lại section nào thì gọi `setupReveals(['id'])` cho đúng section đó — không gọi lại `gsap.from()` trên phần tử đang ẩn.
+- **Blog**: code block chỉ hiện dưới heading kiểu Method/Implementation/… (`isCodeVisibleInSection`). Thứ tự ghim và bài ẩn lấy từ section `blog` (`{ featured: [slug], hidden: [slug] }`, chỉnh ở admin "Blog listing"; mặc định trong `content.js`).
 - **i18n**: field nội dung là chuỗi hoặc `{ en, vn }` (`localize`), chuỗi giao diện ở `UI` trong `content.js`. Lưu lựa chọn ở `localStorage['preferred_lang']`.
 
 ### 2. Admin — `admin/index.html` + `assets/js/admin.js` + `assets/css/admin.css`
-- Đăng nhập mật khẩu → token có hạn (12h) lưu `localStorage['admin_session']`. Hash routes: `#/posts`, `#/posts/new`, `#/posts/edit/:slug`, `#/tags`, `#/site/:key`.
+- Đăng nhập mật khẩu → token có hạn (12h) lưu `localStorage['admin_session']`. Hash routes: `#/posts`, `#/posts/new`, `#/posts/edit/:slug`, `#/tags`, `#/media`, `#/site/:key` (gồm `#/site/blog` = Blog listing).
+- **Ảnh**: upload trong block ảnh, ô cover, hoặc trang Media → lưu trên mini PC ở `uploads/` (gitignored, đổi bằng `UPLOAD_DIR`), phục vụ tại `https://blog-api.verbaa.pp.ua/uploads/<file>`; URL tuyệt đối được ghi vào bài. **Thư mục `uploads/` không nằm trong git — cần backup riêng.**
 - Form section sinh từ schema `SECTIONS` trong `admin.js` — **thêm field vào trang chủ thì sửa cả `SITE_DEFAULTS` (content.js), `SECTIONS` (admin.js) và hàm render trong site.js.**
 - `?api=` chỉ có hiệu lực trên localhost (chặn phishing đổi API khi đăng nhập).
 
 ### 3. Backend — `server/app.js` (Express 5, ESM)
-- Public: `GET /api/health` · `GET /api/blog/posts?status=published` · `GET /api/blog/posts/:slug` (chỉ bài published) · `GET /api/blog/tags` · `GET /api/site`
+- Public: `GET /api/health` · `GET /api/blog/posts?status=published` · `GET /api/blog/posts/:slug` (chỉ bài published) · `GET /api/blog/tags` · `GET /api/site` · `GET /uploads/:file`
+- Media (admin): `POST /api/admin/uploads?name=` (body = file ảnh, Content-Type ảnh, ≤6MB, kiểm tra magic bytes PNG/JPG/WebP/GIF), `GET /api/admin/uploads`, `DELETE /api/admin/uploads/:name`.
 - Admin (`Authorization: Bearer <token>` hoặc `x-admin-key` nếu đặt `ADMIN_API_KEY`): `POST /api/admin/login` (giới hạn 5 lần sai/15 phút/IP), `GET /api/admin/session`, posts `status=draft|archived|all`, `POST/PUT/DELETE /api/blog/posts`, `GET /api/blog/tags?scope=all`, `PATCH/DELETE /api/blog/tags/:slug` (đổi tên trùng = gộp), `PUT/DELETE /api/site/:key`.
 - Không cấu hình auth → các route admin trả 503 (fail closed). CORS theo `CORS_ORIGINS`. Lỗi trả JSON qua error handler cuối file.
 - Đặt mật khẩu: `npm run admin:set-password` (ghi `ADMIN_PASSWORD_HASH` scrypt + `ADMIN_TOKEN_SECRET` vào `.env`). Đổi mật khẩu = thu hồi mọi token.
 - `server/index.js` **không** tự đọc `.env` — systemd dùng `EnvironmentFile`; chạy tay thì `set -a; . ./.env; set +a` trước. Service chạy thẳng từ repo, nên **restart = deploy code backend mới**.
-- `api/[...path].js` là adapter Vercel cũ (không dùng).
 
 ### 4. Database — `db/`
 - `schema.sql`: `blog_posts`, `blog_tags`, `blog_post_tags`, `blog_assets` (chưa dùng), `site_sections (key, data JSONB, updated_at)`.
@@ -46,9 +49,8 @@ Browser ──► GitHub Pages (static, nguồn: nhánh main /, build legacy)   
 - `npm run dev:static` (cổng 5500, giả lập GitHub Pages) + API ở 8787, mở `http://localhost:5500/?api=http://localhost:8787`. Chi tiết: `docs/blog-admin.md`.
 
 ### Deploy
-- **GitHub Pages đang lấy nguồn trực tiếp từ nhánh `main` (thư mục gốc, build legacy/Jekyll)** — mọi file trên `main` đều được phục vụ trên site (trừ file/thư mục bắt đầu bằng `.` hoặc `_`). Workflow `.github/workflows/pages.yml` vẫn build sang nhánh `gh-pages` nhưng **chưa được dùng** vì setting Pages chưa đổi sang `gh-pages`.
+- **GitHub Pages lấy nguồn từ nhánh `gh-pages`** (từ 2026-10-17). Push `main` → workflow `.github/workflows/pages.yml` copy `index.html 404.html admin assets *.pdf *.png` sang `gh-pages`. File/thư mục frontend mới ở gốc repo (ngoài `assets/`, `admin/`) **phải thêm vào bước `cp`**, nếu không sẽ không được deploy. `docs/`, `db/`, `server/`, các file .md không được phục vụ trên site.
 - Repo public — không bao giờ ghi secret vào bất kỳ file nào được commit.
-- Nếu sau này đổi Pages sang nhánh `gh-pages`: file/thư mục frontend mới ở gốc repo (ngoài `assets/`, `admin/`) **phải thêm vào bước `cp` của workflow**.
 
 ## Phạm vi (tránh out of scope)
 
@@ -96,4 +98,4 @@ GSAP dùng bản vanilla qua CDN (không có skill React/Vue vì dự án không
 - `ADMIN_API_KEY` đã đổi; key cũ bị lộ không còn hiệu lực.
 - Postgres (container `postgres`, `~/docker/docker-compose.yml`) chỉ còn nghe trên `127.0.0.1` và IP Tailscale `100.82.138.69` (đã bỏ cổng công khai IPv4/IPv6). User service `postgres-tailscale-guard` khởi động lại container sau khi Tailscale có IP lúc boot.
 - **Còn mở (chủ repo quyết định để sau):** mật khẩu superuser `cloud` từng lộ trong lịch sử git vẫn chưa đổi vì nhiều dự án khác dùng chung; hiện chỉ truy cập được từ máy này và tailnet.
-- `blog-cloudflared.service` trong repo không phải unit đang chạy; unit thật là `blog-api-verbaa-cloudflared` (ngoài repo).
+- Tunnel công khai `blog-api.verbaa.pp.ua` chạy bằng unit `blog-api-verbaa-cloudflared` (ngoài repo); repo chỉ còn `systemd/blog-backend.service` + `blog.target`.

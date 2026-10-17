@@ -1,5 +1,5 @@
 import { mergeSections, localize } from './content.js';
-import { apiFetch } from './api.js';
+import { API_BASE, apiFetch } from './api.js';
 import {
   BLOCK_TYPES,
   blocksToHtml,
@@ -137,8 +137,17 @@ const SECTIONS = {
       { key: 'linkedin', label: 'LinkedIn', type: 'url' },
       { key: 'facebook', label: 'Facebook', type: 'url' }
     ]
+  },
+  blog: {
+    label: 'Blog listing', icon: 'web', sitePath: '/blog', group: 'content',
+    fields: [
+      { key: 'featured', label: 'Pinned posts', type: 'posts', hint: 'Shown first on /blog and in “Latest writing”, in this order. Other posts follow, newest first.' },
+      { key: 'hidden', label: 'Hidden from lists', type: 'posts', hint: 'Still published and reachable by link, but left out of /blog and the home page.' }
+    ]
   }
 };
+
+const HOME_SECTIONS = Object.entries(SECTIONS).filter(([, section]) => section.group !== 'content');
 
 // ---------------------------------------------------------------- State + utils
 
@@ -331,8 +340,10 @@ function renderLogin(notice = '') {
 function routesList() {
   return [
     ['#/posts', 'Posts'],
+    ['#/site/blog', 'Blog listing'],
     ['#/tags', 'Tags'],
-    ...Object.entries(SECTIONS).map(([key, section]) => [`#/site/${key}`, `Home · ${section.label}`])
+    ['#/media', 'Media'],
+    ...HOME_SECTIONS.map(([key, section]) => [`#/site/${key}`, `Home · ${section.label}`])
   ];
 }
 
@@ -347,17 +358,20 @@ function renderShell() {
         <nav class="side-group" aria-label="Content">
           <h2>Content</h2>
           <a class="side-link" href="#/posts" data-route="posts"><span class="icon" aria-hidden="true">article</span>Posts<span class="count" id="post-count"></span></a>
+          <a class="side-link" href="#/site/blog" data-route="site/blog"><span class="icon" aria-hidden="true">web</span>Blog listing</a>
           <a class="side-link" href="#/tags" data-route="tags"><span class="icon" aria-hidden="true">sell</span>Tags</a>
+          <a class="side-link" href="#/media" data-route="media"><span class="icon" aria-hidden="true">image</span>Media</a>
         </nav>
         <nav class="side-group" aria-label="Home page">
           <h2>Home page</h2>
-          ${Object.entries(SECTIONS).map(([key, section]) => `<a class="side-link" href="#/site/${key}" data-route="site/${key}"><span class="icon" aria-hidden="true">${section.icon}</span>${esc(section.label)}</a>`).join('')}
+          ${HOME_SECTIONS.map(([key, section]) => `<a class="side-link" href="#/site/${key}" data-route="site/${key}"><span class="icon" aria-hidden="true">${section.icon}</span>${esc(section.label)}</a>`).join('')}
         </nav>
         <div class="sidebar__footer">
           <a class="side-link" href="/" target="_blank" rel="noopener"><span class="icon" aria-hidden="true">north_east</span>View site</a>
           <button class="side-link btn--ghost" type="button" data-action="logout" style="border:0;background:none;width:100%;text-align:left"><span class="icon" aria-hidden="true">logout</span>Sign out</button>
         </div>
       </aside>
+      <input type="file" id="file-picker" accept="image/png,image/jpeg,image/webp,image/gif" hidden multiple>
       <div class="main">
         <header class="topbar" id="topbar"></header>
         <div class="content" id="content"></div>
@@ -424,6 +438,7 @@ function route() {
   if (parts[0] === 'posts' && parts[1] === 'new') return showPostEditor(null);
   if (parts[0] === 'posts' && parts[1] === 'edit' && parts[2]) return showPostEditor(decodeURIComponent(parts.slice(2).join('/')));
   if (parts[0] === 'tags') return showTags();
+  if (parts[0] === 'media') return showMedia();
   if (parts[0] === 'site' && SECTIONS[parts[1]]) return showSection(parts[1]);
   return showPosts();
 }
@@ -652,7 +667,10 @@ function renderPostEditor() {
           </div>
           <div class="field-group">
             <label class="field-label" for="f-cover">Cover image URL</label>
-            <input class="input" id="f-cover" data-field="coverImageUrl" value="${attr(post.coverImageUrl)}" placeholder="/assets/blog/…png">
+            <div class="input-row">
+              <input class="input" id="f-cover" data-field="coverImageUrl" value="${attr(post.coverImageUrl)}" placeholder="/assets/blog/…png">
+              <button class="btn btn--sm" type="button" data-action="upload" data-upload-target="cover"><span class="icon" aria-hidden="true">upload</span>Upload</button>
+            </div>
           </div>
           <div class="field-group">
             <label class="field-label" for="f-tags">Tags</label>
@@ -718,7 +736,13 @@ function blockFieldsHtml(block, index, sectionLabel) {
   }
   if (block.type === 'image') {
     return `
-      <div class="field-group"><label class="field-label" for="${id('url')}">Image URL</label><input class="input" id="${id('url')}" data-bf="url" value="${attr(data.url)}" placeholder="/assets/blog/figure.png"></div>
+      <div class="field-group"><label class="field-label" for="${id('url')}">Image URL</label>
+        <div class="input-row">
+          <input class="input" id="${id('url')}" data-bf="url" value="${attr(data.url)}" placeholder="/assets/blog/figure.png">
+          <button class="btn btn--sm" type="button" data-action="upload" data-upload-target="block"><span class="icon" aria-hidden="true">upload</span>Upload</button>
+        </div>
+      </div>
+      ${data.url ? `<img class="block__thumb" src="${attr(data.url)}" alt="">` : ''}
       <div class="grid-2">
         <div class="field-group"><label class="field-label" for="${id('alt')}">Alt text</label><input class="input" id="${id('alt')}" data-bf="alt" value="${attr(data.alt)}"></div>
         <div class="field-group"><label class="field-label" for="${id('caption')}">Caption</label><input class="input" id="${id('caption')}" data-bf="caption" value="${attr(data.caption)}"></div>
@@ -984,6 +1008,112 @@ function renderTags() {
     </div>`;
 }
 
+// ---------------------------------------------------------------- Media
+
+const UPLOAD_TYPES = ['image/png', 'image/jpeg', 'image/webp', 'image/gif'];
+const mediaUrl = (path) => `${API_BASE}${path}`;
+let uploadTarget = null;
+
+function formatSize(bytes) {
+  return bytes > 1024 * 1024 ? `${(bytes / 1024 / 1024).toFixed(1)} MB` : `${Math.max(1, Math.round(bytes / 1024))} KB`;
+}
+
+async function uploadFile(file) {
+  if (!UPLOAD_TYPES.includes(file.type)) throw new Error(`${file.name}: only PNG, JPG, WebP or GIF`);
+  if (file.size > 6 * 1024 * 1024) throw new Error(`${file.name}: larger than 6 MB`);
+  let response;
+  try {
+    response = await fetch(`${API_BASE}/api/admin/uploads?name=${encodeURIComponent(file.name)}`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${app.session?.token}`, 'Content-Type': file.type },
+      body: file
+    });
+  } catch (_error) {
+    throw new Error('Cannot reach the server');
+  }
+  const payload = await response.json().catch(() => null);
+  if (response.status === 401) {
+    clearSession();
+    app.dirty = false;
+    renderLogin('Your session expired. Sign in again.');
+    throw Object.assign(new Error('Unauthorized'), { status: 401 });
+  }
+  if (!response.ok) throw new Error(payload?.error || `Upload failed (HTTP ${response.status})`);
+  return payload.item;
+}
+
+// target: { kind: 'cover' } | { kind: 'block', index } | { kind: 'media' }
+function pickFiles(target) {
+  uploadTarget = target;
+  const picker = $('#file-picker');
+  picker.multiple = target.kind === 'media';
+  picker.value = '';
+  picker.click();
+}
+
+async function handlePickedFiles(picker) {
+  const files = Array.from(picker.files || []);
+  const target = uploadTarget;
+  uploadTarget = null;
+  if (!files.length || !target) return;
+  toast(files.length > 1 ? `Uploading ${files.length} images…` : `Uploading ${files[0].name}…`);
+  for (const file of files) {
+    try {
+      const item = await uploadFile(file);
+      const url = mediaUrl(item.path);
+      if (target.kind === 'cover' && app.editor) {
+        app.editor.post.coverImageUrl = url;
+        $('#f-cover').value = url;
+        editorChanged();
+      } else if (target.kind === 'block' && app.editor?.blocks[target.index]) {
+        const block = app.editor.blocks[target.index];
+        block.data.url = url;
+        if (!block.data.alt) block.data.alt = file.name.replace(/\.[^.]+$/, '').replace(/[-_]+/g, ' ');
+        editorChanged({ blocks: true });
+      }
+      toast(`Uploaded ${file.name}`);
+    } catch (error) {
+      if (error.status !== 401) toast(error.message, 'error');
+    }
+  }
+  if (target.kind === 'media' && app.view === 'media') showMedia();
+}
+
+async function showMedia() {
+  app.view = 'media';
+  document.title = 'Media — Admin';
+  markActiveNav('media');
+  setTopbar({
+    title: 'Media',
+    sub: 'Images stored on the blog server. Use them in posts, covers or home sections.',
+    actions: '<button class="btn btn--primary" type="button" data-action="media-upload"><span class="icon" aria-hidden="true">upload</span>Upload images</button>'
+  });
+  $('#content').innerHTML = '<div class="table lens"><div class="empty"><span class="spinner" aria-hidden="true" style="display:inline-block"></span></div></div>';
+  let items;
+  try {
+    items = (await api('/api/admin/uploads')).items || [];
+  } catch (error) {
+    if (error.status === 401) return;
+    $('#content').innerHTML = `<div class="table lens"><div class="empty"><strong>Media could not be loaded</strong>${esc(error.message)}</div></div>`;
+    return;
+  }
+  $('#content').innerHTML = items.length ? `
+    <div class="media-grid">
+      ${items.map((item) => `
+        <figure class="media-card lens" data-media="${attr(item.name)}">
+          <img src="${attr(mediaUrl(item.path))}" alt="" loading="lazy">
+          <figcaption>
+            <span class="media-card__name">${esc(item.name)}</span>
+            <span class="meta">${esc(formatSize(item.size))} · ${esc(formatDate(item.createdAt))}</span>
+            <span class="row__actions">
+              <button class="btn btn--sm" type="button" data-action="copy-media" data-url="${attr(mediaUrl(item.path))}"><span class="icon" aria-hidden="true">content_copy</span>Copy URL</button>
+              <button class="icon-btn icon-btn--danger" type="button" data-action="ask-delete-media" aria-label="Delete ${attr(item.name)}"><span class="icon" aria-hidden="true">delete</span></button>
+            </span>
+          </figcaption>
+        </figure>`).join('')}
+    </div>` : '<div class="table lens"><div class="empty"><strong>No images yet</strong>Upload images here or straight from an image block in a post.</div></div>';
+}
+
 // ---------------------------------------------------------------- Home sections
 
 async function loadSite(force = false) {
@@ -1003,6 +1133,7 @@ async function showSection(key) {
   $('#content').innerHTML = '<div class="card lens"><span class="spinner" aria-hidden="true"></span></div>';
   try {
     await loadSite(true);
+    if (key === 'blog') await loadPosts(true);
   } catch (error) {
     if (error.status === 401) return;
     $('#content').innerHTML = `<div class="table lens"><div class="empty"><strong>Content could not be loaded</strong>${esc(error.message)}</div></div>`;
@@ -1060,6 +1191,36 @@ function fieldHtml(field, value, path) {
       <div class="field-group">
         <span class="fieldset-title">${esc(field.label)}</span>
         ${fieldsHtml(field.fields, value || {}, path)}
+      </div>`;
+  }
+  if (field.type === 'posts') {
+    const chosen = Array.isArray(value) ? value : [];
+    const titles = new Map((app.posts || []).map((post) => [post.slug, post]));
+    const available = (app.posts || []).filter((post) => !chosen.includes(post.slug));
+    return `
+      <div class="field-group">
+        <span class="fieldset-title">${esc(field.label)}</span>
+        <div class="pick-list">
+          ${chosen.length ? chosen.map((slug, index) => {
+            const post = titles.get(slug);
+            return `
+              <div class="pick-row">
+                <span class="pick-row__index meta">${index + 1}</span>
+                <span class="pick-row__title">${esc(post?.title || slug)}${post ? '' : ' <span class="status">missing</span>'}</span>
+                <span class="meta">/${esc(slug)}</span>
+                <button class="icon-btn" type="button" data-pick="up" data-path="${attr(path)}" data-index="${index}" aria-label="Move up" ${index === 0 ? 'disabled' : ''}><span class="icon" aria-hidden="true">arrow_upward</span></button>
+                <button class="icon-btn" type="button" data-pick="down" data-path="${attr(path)}" data-index="${index}" aria-label="Move down" ${index === chosen.length - 1 ? 'disabled' : ''}><span class="icon" aria-hidden="true">arrow_downward</span></button>
+                <button class="icon-btn icon-btn--danger" type="button" data-pick="remove" data-path="${attr(path)}" data-index="${index}" aria-label="Remove"><span class="icon" aria-hidden="true">close</span></button>
+              </div>`;
+          }).join('') : '<p class="field-hint">None yet.</p>'}
+          ${available.length ? `
+            <label class="sr-only" for="${id}">Add a post to ${esc(field.label)}</label>
+            <select class="select" id="${id}" data-pick-add data-path="${attr(path)}">
+              <option value="">Add a post…</option>
+              ${available.map((post) => `<option value="${attr(post.slug)}">${esc(post.title)} (${esc(post.status)})</option>`).join('')}
+            </select>` : ''}
+        </div>
+        ${hint}
       </div>`;
   }
   if (field.type === 'repeat') {
@@ -1146,7 +1307,7 @@ function sectionChanged({ rerender = false } = {}) {
 function onSectionInput(event) {
   const target = event.target;
   const path = target.dataset.path;
-  if (!path || !app.section) return;
+  if (!path || !app.section || target.matches('[data-pick-add]')) return;
   const value = target.dataset.kind === 'list'
     ? target.value.split(',').map((item) => item.trim()).filter(Boolean)
     : target.value;
@@ -1242,6 +1403,16 @@ function bindEvents() {
 
   document.addEventListener('change', (event) => {
     const target = event.target;
+    if (target.matches('[data-pick-add]') && app.section && target.value) {
+      const list = [...(getPath(app.section.data, target.dataset.path) || []), target.value];
+      setPath(app.section.data, target.dataset.path, list);
+      sectionChanged({ rerender: true });
+      return;
+    }
+    if (target.id === 'file-picker') {
+      handlePickedFiles(target);
+      return;
+    }
     if (target.name === 'post-filter') {
       app.filter.status = target.value;
       renderPostList();
@@ -1293,6 +1464,18 @@ function bindEvents() {
   });
 
   document.addEventListener('click', async (event) => {
+    const pickButton = event.target.closest('[data-pick]');
+    if (pickButton && app.section) {
+      const list = [...(getPath(app.section.data, pickButton.dataset.path) || [])];
+      const index = Number(pickButton.dataset.index);
+      if (pickButton.dataset.pick === 'remove') list.splice(index, 1);
+      if (pickButton.dataset.pick === 'up' && index > 0) [list[index - 1], list[index]] = [list[index], list[index - 1]];
+      if (pickButton.dataset.pick === 'down' && index < list.length - 1) [list[index + 1], list[index]] = [list[index], list[index + 1]];
+      setPath(app.section.data, pickButton.dataset.path, list);
+      sectionChanged({ rerender: true });
+      return;
+    }
+
     const repeatButton = event.target.closest('[data-repeat]');
     if (repeatButton && app.section) {
       onRepeatAction(repeatButton);
@@ -1342,6 +1525,29 @@ function bindEvents() {
         if (app.view === 'post') savePost();
         if (app.view === 'section') saveSection();
         break;
+      case 'upload':
+        pickFiles(button.dataset.uploadTarget === 'cover' ? { kind: 'cover' } : { kind: 'block', index });
+        break;
+      case 'media-upload':
+        pickFiles({ kind: 'media' });
+        break;
+      case 'copy-media':
+        navigator.clipboard?.writeText(button.dataset.url).then(() => toast('URL copied')).catch(() => toast(button.dataset.url));
+        break;
+      case 'ask-delete-media':
+        askInline(button.closest('.row__actions'), 'Delete image?', 'confirm-delete-media');
+        break;
+      case 'confirm-delete-media': {
+        const name = button.closest('[data-media]').dataset.media;
+        try {
+          await api(`/api/admin/uploads/${encodeURIComponent(name)}`, { method: 'DELETE' });
+          button.closest('[data-media]').remove();
+          toast('Image deleted. Posts that used it will show a broken image.');
+        } catch (error) {
+          if (error.status !== 401) toast(error.message, 'error');
+        }
+        break;
+      }
       case 'estimate':
         editor.post.readingTimeMinutes = estimateReadingMinutes(editor.blocks);
         $('#f-reading').value = String(editor.post.readingTimeMinutes);

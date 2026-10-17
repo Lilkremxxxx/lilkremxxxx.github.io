@@ -1,7 +1,10 @@
 import cors from 'cors';
 import express from 'express';
 import { Pool } from 'pg';
-import { createHmac, scryptSync, timingSafeEqual } from 'node:crypto';
+import { createHmac, randomBytes, scryptSync, timingSafeEqual } from 'node:crypto';
+import { mkdir, readdir, stat, unlink, writeFile } from 'node:fs/promises';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 const app = express();
 const adminApiKey = process.env.ADMIN_API_KEY || '';
@@ -14,9 +17,18 @@ const corsOrigins = (process.env.CORS_ORIGINS || 'https://lilkremxxxx.github.io,
   .filter(Boolean);
 
 const POST_STATUSES = ['draft', 'published', 'archived'];
-const SITE_SECTION_KEYS = ['hero', 'about', 'education', 'skills', 'projects', 'contact', 'social'];
+const SITE_SECTION_KEYS = ['hero', 'about', 'education', 'skills', 'projects', 'contact', 'social', 'blog'];
 const SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const MAX_SECTION_BYTES = 200 * 1024;
+const UPLOAD_DIR = process.env.UPLOAD_DIR || join(dirname(fileURLToPath(import.meta.url)), '..', 'uploads');
+const UPLOAD_MAX_BYTES = 6 * 1024 * 1024;
+const UPLOAD_NAME_PATTERN = /^[a-z0-9][a-z0-9-]{0,80}\.(png|jpg|webp|gif)$/;
+const IMAGE_TYPES = {
+  'image/png': 'png',
+  'image/jpeg': 'jpg',
+  'image/webp': 'webp',
+  'image/gif': 'gif'
+};
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
@@ -202,6 +214,30 @@ function readPostInput(body, { requireSlug }) {
     seoDescription: input.seoDescription ? String(input.seoDescription) : null,
     tags: normalizeTags(input.tags)
   };
+}
+
+// ---------- Uploads ----------
+
+// Trust the bytes, not the Content-Type header.
+function sniffImage(buffer) {
+  if (buffer.length < 12) return null;
+  if (buffer[0] === 0x89 && buffer.toString('ascii', 1, 4) === 'PNG') return 'png';
+  if (buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff) return 'jpg';
+  if (buffer.toString('ascii', 0, 4) === 'RIFF' && buffer.toString('ascii', 8, 12) === 'WEBP') return 'webp';
+  if (buffer.toString('ascii', 0, 4) === 'GIF8') return 'gif';
+  return null;
+}
+
+function uploadBaseName(original) {
+  const base = String(original || 'image')
+    .replace(/\.[^.]+$/, '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 40);
+  return base || 'image';
 }
 
 // ---------- Data helpers ----------
@@ -517,6 +553,65 @@ app.delete('/api/site/:key', requireAdmin, async (req, res) => {
   res.status(204).end();
 });
 
+// ---------- Media ----------
+
+app.use('/uploads', express.static(UPLOAD_DIR, {
+  index: false,
+  dotfiles: 'ignore',
+  maxAge: '30d',
+  immutable: true,
+  setHeaders(res) {
+    res.set('X-Content-Type-Options', 'nosniff');
+    res.set('Cross-Origin-Resource-Policy', 'cross-origin');
+  }
+}));
+
+app.post(
+  '/api/admin/uploads',
+  requireAdmin,
+  express.raw({ type: Object.keys(IMAGE_TYPES), limit: UPLOAD_MAX_BYTES }),
+  async (req, res) => {
+    if (!Buffer.isBuffer(req.body) || !req.body.length) {
+      return res.status(415).json({ error: 'Send a PNG, JPG, WebP or GIF file as the request body' });
+    }
+    const ext = sniffImage(req.body);
+    if (!ext) return res.status(415).json({ error: 'The file is not a PNG, JPG, WebP or GIF image' });
+
+    const stamp = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+    const name = `${stamp}-${uploadBaseName(req.query.name)}-${randomBytes(3).toString('hex')}.${ext}`;
+    await mkdir(UPLOAD_DIR, { recursive: true });
+    await writeFile(join(UPLOAD_DIR, name), req.body, { flag: 'wx' });
+    res.status(201).json({ item: { name, path: `/uploads/${name}`, size: req.body.length } });
+  }
+);
+
+app.get('/api/admin/uploads', requireAdmin, async (_req, res) => {
+  let names = [];
+  try {
+    names = (await readdir(UPLOAD_DIR)).filter((name) => UPLOAD_NAME_PATTERN.test(name));
+  } catch (error) {
+    if (error.code !== 'ENOENT') throw error;
+  }
+  const items = await Promise.all(names.map(async (name) => {
+    const info = await stat(join(UPLOAD_DIR, name));
+    return { name, path: `/uploads/${name}`, size: info.size, createdAt: info.mtime };
+  }));
+  items.sort((a, b) => b.createdAt - a.createdAt);
+  res.json({ items });
+});
+
+app.delete('/api/admin/uploads/:name', requireAdmin, async (req, res) => {
+  const { name } = req.params;
+  if (!UPLOAD_NAME_PATTERN.test(name)) return res.status(400).json({ error: 'Invalid file name' });
+  try {
+    await unlink(join(UPLOAD_DIR, name));
+  } catch (error) {
+    if (error.code === 'ENOENT') return res.status(404).json({ error: 'File not found' });
+    throw error;
+  }
+  res.status(204).end();
+});
+
 // ---------- Errors ----------
 
 app.use((_req, res) => {
@@ -525,7 +620,7 @@ app.use((_req, res) => {
 
 app.use((error, _req, res, _next) => {
   if (error instanceof HttpError) return res.status(error.status).json({ error: error.message });
-  if (error?.type === 'entity.too.large') return res.status(413).json({ error: 'Request body is too large' });
+  if (error?.type === 'entity.too.large') return res.status(413).json({ error: 'File or request is too large (images up to 6 MB)' });
   if (error?.code === '23505') return res.status(409).json({ error: 'A post with this slug already exists' });
   console.error(error);
   res.status(500).json({ error: 'Database operation failed' });

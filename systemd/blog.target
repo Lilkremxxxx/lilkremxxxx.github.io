@@ -1,6 +1,6 @@
 [Unit]
 Description=Blog local stack target
-Wants=blog-backend.service blog-cloudflared.service
+Wants=blog-backend.service
 After=network-online.target
 
 [Install]
