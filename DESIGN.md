@@ -16,7 +16,7 @@ colors:
   danger: "#ff8a7a"
   danger-wash: "rgba(255, 110, 90, 0.12)"
   caution-amber: "#ffd27a"
-  glass: "rgba(255, 255, 255, 0.035)"
+  glass: "rgba(255, 255, 255, 0.028)"
   glass-strong: "rgba(14, 18, 24, 0.78)"
   glass-line: "rgba(255, 255, 255, 0.09)"
   glass-line-strong: "rgba(255, 255, 255, 0.16)"
@@ -264,8 +264,8 @@ The page ground is three fixed full-viewport layers:
 3. **Veil** (z -1): an ink gradient that darkens the left 48 to 72% on desktop, where text sits, and the bottom 30%. On mobile it becomes a top-to-bottom gradient. On blog and post routes it adds a 45% ink wash.
 
 Every surface above that is a **lens** — liquid glass, built to show the field rather than hide it. It has:
-- a white sheen gradient (6% fading to 0 by 38%) over a near-clear 3.5% white fill
-- `backdrop-filter: blur(7px) saturate(185%) brightness(0.78)`: the field keeps its colour but is dimmed enough for text
+- a white sheen gradient (4.8% fading to 0 by 38%) over a near-clear 2.8% white fill
+- `backdrop-filter: blur(7px) saturate(185%) brightness(0.82)`: the field keeps its colour but is dimmed enough for text
 - a light-catching 1px **rim**: a gradient ring (`--glass-rim`, masked `::before`) from 42% white through clear to a faint blue and lime edge, whose angle (`--sheen-angle`, 125° → 195°) follows the scroll position
 - inner highlights (`inset 0 1px 0 16% white`, a faint bottom lip and a 28px inner glow) plus a deep ambient drop
 - a 1px 2px 35% black text shadow on everything inside, and `isolation: isolate`
@@ -279,9 +279,9 @@ Lenses tagged `data-specular` show a 420px radial highlight on hover that follow
 - **Live pulse** (`0 0 0 0 → 10px rgba(189,255,0,0)` keyframe, 2.4s, 3 iterations): the hero availability dot. It pulses three times, then rests.
 
 ### Glass variants (blur and opacity as built)
-- **Standard lens:** 3.5% white fill, 7px blur. Panels, project cards, the timeline, skills, the TOC, admin cards, the sidebar and toasts.
-- **Nav and dock:** 28% / 40% ink fill with 14px blur — they float over scrolling content, so they stay denser.
-- **Reading lens** (`.lens--strong`): 60% ink fill, 16px blur. The blog article, the admin preview and the insert menu.
+- **Standard lens:** 2.8% white fill, 7px blur. Panels, project cards, the timeline, skills, the TOC, admin cards, the sidebar and toasts.
+- **Nav and dock:** 22% / 32% ink fill with 14px blur — they float over scrolling content, so they stay denser.
+- **Reading lens** (`.lens--strong`): 48% ink fill, 16px blur. The blog article, the admin preview and the insert menu.
 - **Hero lens:** standard fill with only 5px blur, so the forming manifold reads through it as bokeh.
 - **Buttons:** a 14px blur over a 6% white fill. Ghost buttons drop the blur.
 - **Admin topbar:** an ink gradient (92% to 75%) with 16px blur and a bottom hairline.
@@ -372,7 +372,8 @@ A three.js r170 `Points` cloud with a custom `ShaderMaterial` (additive, no dept
 - **Boot:** the field unfolds from a dense `core` into the Lorenz attractor over 2.4s, in step with the hero intro.
 - **Secondary — forward-pass wave:** a Gaussian signal front sweeps along x over 1.8s (sine in-out), lifting points and lighting them lime/white. It fires on every section change and every 5.2–7.2s at rest.
 - **Secondary — pointer lens:** on fine pointers, points within ~0.45 screen units of the cursor are pushed outward and brighten; the effect fades 1.4s after the pointer stops. A click or tap on empty space sends a ring ripple (1.4s).
-- **Route change:** the camera dives 1.6 units into the field and settles back (1.1s, sine) while the cloud tweens to `haze` (blog 0.55, post 0.4 intensity) or back to the current section's shape.
+- **Route change:** leaving the home page, the camera dives 1.6 units into the field and settles back (1.1s, sine) while the cloud tweens to the reading shape; coming back it tweens to the current section's shape.
+- **Reading mode (blog list + posts):** one continuous `galaxy` for the whole visit (no re-morph or dive between posts). Calm: the clock runs at 0.3× (drift, twist, sway, pulses, twinkle all slow), glow ×0.3, no forward-pass waves, no pointer lens, no click ripple. Placement: blog list — compact (0.62×) in the empty space right of the title (x 2.7, y 1.25, intensity 0.85); post — behind the contents column (x 3.0, y 0.3, intensity 0.7). The reading veil wash is 28%.
 - **Ambient:** small per-point drift, slow sway, breathing twist, pointer-follow tilt.
 - **Fallbacks:** paused while the tab is hidden; reduced motion snaps shapes per section with a single static frame (no wave, pointer, ripple or dive); no WebGL keeps the CSS backdrop.
 

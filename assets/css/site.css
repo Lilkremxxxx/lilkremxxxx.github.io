@@ -40,7 +40,7 @@
 
 body[data-route="blog"] .veil,
 body[data-route="post"] .veil {
-  background-color: rgba(11, 13, 16, 0.45);
+  background-color: rgba(11, 13, 16, 0.28);
 }
 
 @media (max-width: 760px) {
@@ -70,7 +70,7 @@ body[data-route="post"] .veil {
 
 /* ---------- Top navigation lens ---------- */
 .site-nav {
-  --glass: rgba(14, 17, 22, 0.28);
+  --glass: rgba(14, 17, 22, 0.22);
   --glass-blur: 14px;
   position: fixed;
   top: max(14px, env(safe-area-inset-top));
@@ -183,7 +183,7 @@ body[data-route="post"] .veil {
   }
 
   .dock {
-    --glass: rgba(14, 17, 22, 0.4);
+    --glass: rgba(14, 17, 22, 0.32);
     --glass-blur: 14px;
     position: fixed;
     bottom: max(12px, env(safe-area-inset-bottom));

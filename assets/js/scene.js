@@ -231,6 +231,7 @@ const VERTEX = /* glsl */ `
   uniform float uMouseAmp;
   uniform float uAspect;
   uniform vec3 uRipple;
+  uniform float uGlow;
   varying float vLime;
   varying float vSeed;
   varying float vDepth;
@@ -278,7 +279,7 @@ const VERTEX = /* glsl */ `
     mv.xy += dir * (mouseF * 0.6 + ripple * 0.4) * (-mv.z) * 0.12;
     gl_Position = projectionMatrix * mv;
 
-    float glow = clamp(wave + mouseF * 0.9 + ripple + pulse * 0.8, 0.0, 1.6);
+    float glow = clamp(wave + mouseF * 0.9 + ripple + pulse * 0.8, 0.0, 1.6) * uGlow;
     float size = uSize * (aLime > 0.5 ? 1.8 : 1.0) * (0.6 + aSeed * 0.8) * (1.0 + glow * 0.9);
     gl_PointSize = size * uPixelRatio * (6.0 / -mv.z);
     vLime = aLime;
@@ -291,6 +292,7 @@ const VERTEX = /* glsl */ `
 const FRAGMENT = /* glsl */ `
   uniform float uTime;
   uniform float uIntensity;
+  uniform float uGlow;
   uniform vec3 uBlue;
   uniform vec3 uLime;
   varying float vLime;
@@ -302,7 +304,7 @@ const FRAGMENT = /* glsl */ `
     float d = length(gl_PointCoord - 0.5);
     // Bright core + soft halo reads as bokeh once the glass blurs it.
     float disc = smoothstep(0.5, 0.0, d) * 0.55 + smoothstep(0.2, 0.0, d) * 0.65;
-    float twinkle = vLime > 0.5 ? 0.55 + 0.45 * sin(uTime * 2.2 + vSeed * 40.0) : 1.0;
+    float twinkle = vLime > 0.5 ? 1.0 - 0.45 * uGlow * (0.5 - 0.5 * sin(uTime * 2.2 + vSeed * 40.0)) : 1.0;
     float depthFade = clamp(1.3 - (vDepth - 4.0) * 0.1, 0.3, 1.0);
     vec3 color = mix(uBlue, uLime, clamp(vLime + vGlow * 0.85, 0.0, 1.0));
     color = mix(color, vec3(1.0), vGlow * 0.25);
@@ -377,6 +379,7 @@ export async function startScene(canvas, { reducedMotion = false } = {}) {
     uScale: { value: isNarrow ? 1.0 : 1.25 },
     uPixelRatio: { value: renderer.getPixelRatio() },
     uIntensity: { value: 0 },
+    uGlow: { value: 1 },
     uWaveFront: { value: -99 },
     uWaveAmp: { value: 0 },
     uMouse: { value: new THREE.Vector2(9, 9) },
@@ -411,6 +414,9 @@ export async function startScene(canvas, { reducedMotion = false } = {}) {
     intensityTarget: 1,
     focusX: 0,
     focusXTarget: 0,
+    focusY: 0,
+    focusYTarget: 0,
+    scaleTarget: isNarrow ? 1.0 : 1.25,
     pointer: { x: 0, y: 0, lastMove: -1e9 },
     tilt: { x: 0, y: 0 },
     waveStart: -1e9,
@@ -420,6 +426,12 @@ export async function startScene(canvas, { reducedMotion = false } = {}) {
     baseZ: 7.5,
     running: false,
     lastTime: performance.now(),
+    // Calm mode (reading routes): slower clock, weaker glow, no waves or pointer effects.
+    calm: false,
+    clock: 0,
+    speed: 1,
+    speedTarget: 1,
+    glowTarget: 1,
     spin: 0
   };
 
@@ -447,7 +459,7 @@ export async function startScene(canvas, { reducedMotion = false } = {}) {
   }
 
   function fireWave(now = performance.now()) {
-    if (reducedMotion) return;
+    if (reducedMotion || state.calm) return;
     state.waveStart = now;
     state.nextWave = now + 5200 + Math.random() * 2000;
   }
@@ -466,7 +478,11 @@ export async function startScene(canvas, { reducedMotion = false } = {}) {
   function renderFrame(now) {
     const dt = Math.min(now - state.lastTime, 64) / 1000;
     state.lastTime = now;
-    uniforms.uTime.value = reducedMotion ? 0 : now / 1000;
+    const settle = 1 - Math.exp(-dt * 1.5);
+    state.speed += (state.speedTarget - state.speed) * settle;
+    uniforms.uGlow.value += (state.glowTarget - uniforms.uGlow.value) * settle;
+    state.clock += dt * state.speed;
+    uniforms.uTime.value = reducedMotion ? 0 : state.clock;
 
     if (state.tweening) {
       const progress = Math.min((now - state.tweenStart) / state.tweenDuration, 1);
@@ -483,17 +499,20 @@ export async function startScene(canvas, { reducedMotion = false } = {}) {
     const ease = reducedMotion ? 1 : 1 - Math.exp(-dt * 2.2);
     uniforms.uIntensity.value += (state.intensityTarget - uniforms.uIntensity.value) * ease;
     state.focusX += (state.focusXTarget - state.focusX) * ease;
+    state.focusY += (state.focusYTarget - state.focusY) * ease;
+    uniforms.uScale.value += (state.scaleTarget - uniforms.uScale.value) * ease;
     group.position.x = state.focusX;
+    group.position.y = state.focusY;
 
     if (!reducedMotion) {
       // Signal wave: 1.8s sweep from left to right across the shape.
-      if (now > state.nextWave) fireWave(now);
+      if (now > state.nextWave && !state.calm) fireWave(now);
       const waveP = (now - state.waveStart) / 1800;
       uniforms.uWaveAmp.value = waveP >= 0 && waveP <= 1 ? Math.sin(Math.PI * waveP) : 0;
       uniforms.uWaveFront.value = -4.5 + 9 * easeInOutSine(Math.min(Math.max(waveP, 0), 1));
 
       const idle = now - state.pointer.lastMove;
-      const mouseTarget = finePointer && idle < 1400 ? 1 : 0;
+      const mouseTarget = finePointer && idle < 1400 && !state.calm ? 1 : 0;
       uniforms.uMouseAmp.value += (mouseTarget - uniforms.uMouseAmp.value) * (1 - Math.exp(-dt * (mouseTarget ? 6 : 1.6)));
 
       const rippleAge = (now - state.rippleStart) / 1000;
@@ -503,7 +522,7 @@ export async function startScene(canvas, { reducedMotion = false } = {}) {
       const dolly = (now - state.dollyStart) / 1100;
       camera.position.z = state.baseZ - (dolly >= 0 && dolly <= 1 ? Math.sin(Math.PI * dolly) * 1.6 : 0);
 
-      state.spin = Math.sin(now / 1000 * 0.12) * 0.32;
+      state.spin = Math.sin(state.clock * 0.12) * 0.32;
       state.tilt.x += (state.pointer.y * 0.16 - state.tilt.x) * (1 - Math.exp(-dt * 3));
       state.tilt.y += (state.pointer.x * 0.22 - state.tilt.y) * (1 - Math.exp(-dt * 3));
     } else {
@@ -560,7 +579,7 @@ export async function startScene(canvas, { reducedMotion = false } = {}) {
     uniforms.uMouse.value.set(state.pointer.x, -state.pointer.y);
   };
   const onDown = (event) => {
-    if (reducedMotion || event.target.closest?.('a, button, input, textarea, select, label')) return;
+    if (reducedMotion || state.calm || event.target.closest?.('a, button, input, textarea, select, label')) return;
     uniforms.uRipple.value.x = (event.clientX / window.innerWidth) * 2 - 1;
     uniforms.uRipple.value.y = -((event.clientY / window.innerHeight) * 2 - 1);
     state.rippleStart = performance.now();
@@ -608,13 +627,25 @@ export async function startScene(canvas, { reducedMotion = false } = {}) {
       state.shape = target < 0.5 ? a : b;
       if (reducedMotion) renderFrame(performance.now());
     },
-    setFocus({ x = 0, intensity = 1 } = {}) {
-      state.focusXTarget = canvas.clientWidth < 760 ? 0 : x;
+    // x/y in world units (x is ignored on narrow screens), scale relative to the default size.
+    setFocus({ x = 0, y = 0, intensity = 1, scale = 1 } = {}) {
+      const narrow = canvas.clientWidth < 760;
+      state.focusXTarget = narrow ? 0 : x;
+      state.focusYTarget = narrow ? y * 0.6 : y;
+      state.scaleTarget = (narrow ? 1.0 : 1.25) * scale;
       state.intensityTarget = intensity;
       if (reducedMotion) {
         state.focusX = state.focusXTarget;
+        state.focusY = state.focusYTarget;
+        uniforms.uScale.value = state.scaleTarget;
         renderFrame(performance.now());
       }
+    },
+    setCalm(on) {
+      state.calm = Boolean(on);
+      state.speedTarget = on ? 0.3 : 1;
+      state.glowTarget = on ? 0.3 : 1;
+      if (on) state.rippleStart = -1e9;
     },
     wave() {
       fireWave();

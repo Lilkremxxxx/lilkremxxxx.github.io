@@ -493,6 +493,8 @@ async function handleRoute({ initial = false } = {}) {
     await swapView('home');
     if (!wasHome) ScrollTrigger?.refresh();
     scrollToSection(route.section, !initial && wasHome);
+    state.scene?.setCalm(false);
+    state.readingScene = false;
     if (!wasHome && previous) {
       // Coming back from the blog: dive and morph to the section in view, then scroll takes over.
       const section = document.getElementById(route.section || state.activeSection) || $('#hero');
@@ -504,12 +506,12 @@ async function handleRoute({ initial = false } = {}) {
   } else if (route.name === 'blog') {
     document.title = `${ui('blog_title')} — ${state.content.hero.name}`;
     await swapView('blog');
-    setRouteScene({ x: 0, intensity: 0.55 });
+    setRouteScene(READING_FOCUS.blog);
     updateNav('blog');
     showBlogList();
   } else {
     await swapView('post');
-    setRouteScene({ x: 0, intensity: 0.4 });
+    setRouteScene(READING_FOCUS.post);
     updateNav('blog');
     showPost(route.slug);
   }
@@ -568,9 +570,18 @@ const SECTION_FOCUS = {
   contact: { x: 1.9, intensity: 0.95 }
 };
 
+// Blog list: a compact galaxy in the empty space right of the title. Post: behind the contents column.
+const READING_FOCUS = {
+  blog: { x: 2.7, y: 1.25, intensity: 0.85, scale: 0.62 },
+  post: { x: 3.0, y: 0.3, intensity: 0.7, scale: 0.62 }
+};
+
+// Reading routes keep one calm shape for the whole visit: slower clock, low glow, no waves or pointer effects.
 function setRouteScene(focus) {
-  state.scene?.dive();
-  state.scene?.setShape('haze');
+  if (!state.readingScene) state.scene?.dive();
+  state.readingScene = Boolean(state.scene);
+  state.scene?.setCalm(true);
+  state.scene?.setShape('galaxy');
   state.scene?.setFocus(focus);
 }
 
@@ -623,7 +634,7 @@ function startSceneWhenIdle() {
       // The boot morph runs first; scroll scrubbing resumes when it finishes.
       setTimeout(updateSceneFromScroll, 2700);
     } else {
-      setRouteScene({ x: 0, intensity: state.route?.name === 'post' ? 0.4 : 0.55 });
+      setRouteScene(READING_FOCUS[state.route?.name] || READING_FOCUS.blog);
     }
     root.classList.add('scene-ready');
   };
