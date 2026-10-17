@@ -276,7 +276,7 @@ Expected: no admin usage guide yet.
 Add this to `.env.example`:
 
 ```env
-DATABASE_URL=postgresql://cloud:cloud_pass@100.82.138.69:5432/nhatbang-web
+DATABASE_URL=postgresql://<user>:<password>@<host>:5432/<database>
 PORT=8787
 ADMIN_API_KEY=change-me
 BLOG_PUBLIC_API_BASE=https://your-api-domain.example

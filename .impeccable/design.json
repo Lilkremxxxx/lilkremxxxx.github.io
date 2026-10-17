@@ -1,0 +1,543 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-10-17T13:28:30+00:00",
+  "title": "Design System: Nguyen Nhat Bang, AI Engineer",
+  "extensions": {
+    "colorMeta": {
+      "cyber-lime": {
+        "role": "primary",
+        "displayName": "Cyber Lime",
+        "canonical": "oklch(92.1% 0.235 126.3)",
+        "tonalRamp": [
+          "oklch(15% 0.054 126.3)",
+          "oklch(25% 0.080 126.3)",
+          "oklch(35% 0.106 126.3)",
+          "oklch(45% 0.132 126.3)",
+          "oklch(55% 0.158 126.3)",
+          "oklch(65% 0.184 126.3)",
+          "oklch(80% 0.223 126.3)",
+          "oklch(95% 0.235 126.3)"
+        ]
+      },
+      "cyber-lime-hover": {
+        "role": "primary",
+        "displayName": "Lit Lime",
+        "canonical": "oklch(93.2% 0.214 124.1)",
+        "tonalRamp": [
+          "oklch(15% 0.048 124.1)",
+          "oklch(25% 0.072 124.1)",
+          "oklch(35% 0.096 124.1)",
+          "oklch(45% 0.119 124.1)",
+          "oklch(55% 0.143 124.1)",
+          "oklch(65% 0.167 124.1)",
+          "oklch(80% 0.203 124.1)",
+          "oklch(95% 0.214 124.1)"
+        ]
+      },
+      "lime-ink": {
+        "role": "primary",
+        "displayName": "Lime Ink",
+        "canonical": "oklch(22.4% 0.058 127.1)",
+        "tonalRamp": [
+          "oklch(15% 0.058 127.1)",
+          "oklch(25% 0.058 127.1)",
+          "oklch(35% 0.058 127.1)",
+          "oklch(45% 0.058 127.1)",
+          "oklch(55% 0.057 127.1)",
+          "oklch(65% 0.051 127.1)",
+          "oklch(80% 0.041 127.1)",
+          "oklch(95% 0.031 127.1)"
+        ]
+      },
+      "signal-blue": {
+        "role": "secondary",
+        "displayName": "Signal Blue",
+        "canonical": "oklch(66.2% 0.182 255.6)",
+        "tonalRamp": [
+          "oklch(15% 0.098 255.6)",
+          "oklch(25% 0.119 255.6)",
+          "oklch(35% 0.139 255.6)",
+          "oklch(45% 0.159 255.6)",
+          "oklch(55% 0.179 255.6)",
+          "oklch(65% 0.182 255.6)",
+          "oklch(80% 0.174 255.6)",
+          "oklch(95% 0.144 255.6)"
+        ]
+      },
+      "blue-soft": {
+        "role": "secondary",
+        "displayName": "Soft Blue",
+        "canonical": "oklch(82.9% 0.085 261.1)",
+        "tonalRamp": [
+          "oklch(15% 0.041 261.1)",
+          "oklch(25% 0.050 261.1)",
+          "oklch(35% 0.060 261.1)",
+          "oklch(45% 0.069 261.1)",
+          "oklch(55% 0.079 261.1)",
+          "oklch(65% 0.085 261.1)",
+          "oklch(80% 0.085 261.1)",
+          "oklch(95% 0.085 261.1)"
+        ]
+      },
+      "caution-amber": {
+        "role": "tertiary",
+        "displayName": "Caution Amber",
+        "canonical": "oklch(88.5% 0.118 82.9)",
+        "tonalRamp": [
+          "oklch(15% 0.042 82.9)",
+          "oklch(25% 0.055 82.9)",
+          "oklch(35% 0.068 82.9)",
+          "oklch(45% 0.081 82.9)",
+          "oklch(55% 0.094 82.9)",
+          "oklch(65% 0.107 82.9)",
+          "oklch(80% 0.118 82.9)",
+          "oklch(95% 0.118 82.9)"
+        ]
+      },
+      "danger": {
+        "role": "tertiary",
+        "displayName": "Danger Salmon",
+        "canonical": "oklch(75.8% 0.145 29.0)",
+        "tonalRamp": [
+          "oklch(15% 0.067 29.0)",
+          "oklch(25% 0.083 29.0)",
+          "oklch(35% 0.099 29.0)",
+          "oklch(45% 0.115 29.0)",
+          "oklch(55% 0.131 29.0)",
+          "oklch(65% 0.145 29.0)",
+          "oklch(80% 0.145 29.0)",
+          "oklch(95% 0.134 29.0)"
+        ]
+      },
+      "ink": {
+        "role": "neutral",
+        "displayName": "Ink",
+        "canonical": "oklch(15.8% 0.007 258.4)",
+        "tonalRamp": [
+          "oklch(15% 0.007 258.4)",
+          "oklch(25% 0.007 258.4)",
+          "oklch(35% 0.007 258.4)",
+          "oklch(45% 0.007 258.4)",
+          "oklch(55% 0.007 258.4)",
+          "oklch(65% 0.007 258.4)",
+          "oklch(80% 0.007 258.4)",
+          "oklch(95% 0.007 258.4)"
+        ]
+      },
+      "text": {
+        "role": "neutral",
+        "displayName": "Paper White",
+        "canonical": "oklch(95.7% 0.006 255.5)",
+        "tonalRamp": [
+          "oklch(15% 0.006 255.5)",
+          "oklch(25% 0.006 255.5)",
+          "oklch(35% 0.006 255.5)",
+          "oklch(45% 0.006 255.5)",
+          "oklch(55% 0.006 255.5)",
+          "oklch(65% 0.006 255.5)",
+          "oklch(80% 0.006 255.5)",
+          "oklch(95% 0.006 255.5)"
+        ]
+      },
+      "text-2": {
+        "role": "neutral",
+        "displayName": "Mist",
+        "canonical": "oklch(83.7% 0.017 259.4)",
+        "tonalRamp": [
+          "oklch(15% 0.017 259.4)",
+          "oklch(25% 0.017 259.4)",
+          "oklch(35% 0.017 259.4)",
+          "oklch(45% 0.017 259.4)",
+          "oklch(55% 0.017 259.4)",
+          "oklch(65% 0.017 259.4)",
+          "oklch(80% 0.017 259.4)",
+          "oklch(95% 0.017 259.4)"
+        ]
+      },
+      "text-3": {
+        "role": "neutral",
+        "displayName": "Slate",
+        "canonical": "oklch(67.7% 0.023 259.2)",
+        "tonalRamp": [
+          "oklch(15% 0.023 259.2)",
+          "oklch(25% 0.023 259.2)",
+          "oklch(35% 0.023 259.2)",
+          "oklch(45% 0.023 259.2)",
+          "oklch(55% 0.023 259.2)",
+          "oklch(65% 0.023 259.2)",
+          "oklch(80% 0.023 259.2)",
+          "oklch(95% 0.023 259.2)"
+        ]
+      },
+      "lime-soft": {
+        "role": "primary",
+        "displayName": "Lime Soft"
+      },
+      "blue-wash": {
+        "role": "secondary",
+        "displayName": "Blue Wash"
+      },
+      "danger-wash": {
+        "role": "tertiary",
+        "displayName": "Danger Wash"
+      },
+      "glass": {
+        "role": "neutral",
+        "displayName": "Glass"
+      },
+      "glass-strong": {
+        "role": "neutral",
+        "displayName": "Reading Glass"
+      },
+      "glass-line": {
+        "role": "neutral",
+        "displayName": "Hairline"
+      },
+      "glass-line-strong": {
+        "role": "neutral",
+        "displayName": "Strong Hairline"
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Display",
+        "purpose": "Hero name only, revealed by masked SplitText lines."
+      },
+      "headline": {
+        "displayName": "Headline",
+        "purpose": "Every home section title."
+      },
+      "title": {
+        "displayName": "Title",
+        "purpose": "Project names inside project lenses."
+      },
+      "subhead": {
+        "displayName": "Subhead",
+        "purpose": "Hero role line, in Soft Blue."
+      },
+      "title-sm": {
+        "displayName": "Title Small",
+        "purpose": "Timeline roles, school names, panel and card headings."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "Default copy; admin runs at 15px."
+      },
+      "reading": {
+        "displayName": "Reading",
+        "purpose": "Blog article blocks, 72ch measure."
+      },
+      "label": {
+        "displayName": "Label",
+        "purpose": "Mono data: dates, periods, tags, counts, code."
+      }
+    },
+    "shadows": [
+      {
+        "name": "lens",
+        "value": "0 1px 0 rgba(255,255,255,0.06) inset, 0 24px 60px -28px rgba(0,0,0,0.85), 0 8px 24px -12px rgba(0,0,0,0.5)",
+        "purpose": "Every lens: inset top highlight plus deep negative-spread ambient drop."
+      },
+      {
+        "name": "button-primary",
+        "value": "0 1px 0 rgba(255,255,255,0.35) inset, 0 10px 24px -12px rgba(0,0,0,0.7)",
+        "purpose": "Glassy top edge on the lime pill."
+      },
+      {
+        "name": "button-primary-hover",
+        "value": "0 1px 0 rgba(255,255,255,0.4) inset, 0 14px 28px -12px rgba(0,0,0,0.75)",
+        "purpose": "Lime pill on hover."
+      },
+      {
+        "name": "focus-halo",
+        "value": "0 0 0 3px rgba(189,255,0,0.15)",
+        "purpose": "Input focus, paired with a lime border."
+      },
+      {
+        "name": "glass-blur",
+        "value": "blur(12px) saturate(150%)",
+        "purpose": "Standard lens backdrop-filter. Hero lens 6px, buttons 14px, admin topbar 16px."
+      },
+      {
+        "name": "glass-sheen",
+        "value": "linear-gradient(180deg, rgba(255,255,255,0.07), rgba(255,255,255,0) 42%)",
+        "purpose": "Top sheen layered over every lens fill."
+      },
+      {
+        "name": "specular",
+        "value": "radial-gradient(420px circle at var(--mx) var(--my), rgba(255,255,255,0.075), transparent 60%)",
+        "purpose": "Pointer-following highlight on lenses tagged data-specular."
+      }
+    ],
+    "motion": [
+      {
+        "name": "ease-out",
+        "value": "cubic-bezier(0.16, 1, 0.3, 1)",
+        "purpose": "All CSS state transitions."
+      },
+      {
+        "name": "ease-in",
+        "value": "cubic-bezier(0.55, 0, 1, 0.45)",
+        "purpose": "Declared exit easing."
+      },
+      {
+        "name": "dur-quick",
+        "value": "140ms",
+        "purpose": "Hover/color/press feedback."
+      },
+      {
+        "name": "dur-standard",
+        "value": "320ms",
+        "purpose": "Nav indicator glide, specular fade, toasts."
+      },
+      {
+        "name": "dur-slow",
+        "value": "560ms",
+        "purpose": "Veil darkening on reading routes."
+      },
+      {
+        "name": "gsap-arrival",
+        "value": "expo.out",
+        "purpose": "Hero intro, section reveals, view enter."
+      },
+      {
+        "name": "hero-intro",
+        "value": "nav y-24 0.9s; name words yPercent 115 1.1s stagger 0.06; items y18 blur8 0.9s stagger 0.07",
+        "purpose": "One-time entrance timeline (SplitText masked lines)."
+      },
+      {
+        "name": "section-reveal",
+        "value": "ScrollTrigger once, start top 82%; travel 14-56px",
+        "purpose": "Per-section reveals; projects use inset(14% round 32px) clip wipe, chips back.out(2)."
+      },
+      {
+        "name": "view-swap",
+        "value": "exit y-10 blur4 0.18s power2.in; enter y16 blur6 0.5s expo.out",
+        "purpose": "GSAP crossfade between home, blog and post views."
+      },
+      {
+        "name": "field-morph",
+        "value": "1700ms cubic in-out, per-point seed stagger, mid-flight outward bulge",
+        "purpose": "three.js point field shape change per section/route."
+      },
+      {
+        "name": "field-fade-in",
+        "value": "opacity 1.4s ease-out",
+        "purpose": "Canvas reveal once the scene is ready."
+      },
+      {
+        "name": "live-pulse",
+        "value": "2.4s ease-out x3",
+        "purpose": "Hero availability dot; rests after three pulses."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "admin-editor-stack",
+        "value": "1280px"
+      },
+      {
+        "name": "reader-toc",
+        "value": "1100px"
+      },
+      {
+        "name": "nav-links",
+        "value": "960px"
+      },
+      {
+        "name": "grid-stack",
+        "value": "900px"
+      },
+      {
+        "name": "admin-sidebar",
+        "value": "860px"
+      },
+      {
+        "name": "mobile",
+        "value": "760px"
+      }
+    ],
+    "latentField": {
+      "library": "three@0.170.0 (dynamic import on idle)",
+      "material": "ShaderMaterial, AdditiveBlending, depthWrite false, transparent canvas",
+      "pointCount": {
+        "desktop": 6500,
+        "narrow": 3200,
+        "lowPower": 2200
+      },
+      "maxPixelRatio": {
+        "desktop": 1.75,
+        "narrow": 1.5,
+        "lowPower": 1
+      },
+      "colors": {
+        "base": "#3992ff (62% alpha)",
+        "activation": "#bdff00, 11% of points, 1.8x size, twinkle"
+      },
+      "shapes": {
+        "hero": "manifold",
+        "about": "clusters",
+        "project": "network",
+        "skill": "lattice",
+        "education": "spiral",
+        "writing": "spiral",
+        "contact": "plane",
+        "blog": "haze (intensity 0.5)",
+        "post": "haze (intensity 0.35)"
+      },
+      "morph": "1700ms cubic in-out from current positions, seed-staggered, outward bulge mid-flight",
+      "idle": "per-point drift, 0.05 rad/s spin, pointer tilt, focus x 2.3 hero / 2.1 sections, centered <760px",
+      "fallbacks": "paused when tab hidden; single static frame under reduced motion; CSS gradient backdrop when WebGL/import fails"
+    }
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Lime pill for the one primary action per group (Download CV, Resume, Save).",
+      "html": "<button class=\"ds-btn ds-btn-primary\"><svg viewBox=\"0 0 24 24\" width=\"18\" height=\"18\" fill=\"currentColor\" aria-hidden=\"true\"><path d=\"M12 16l-5-5h3V4h4v7h3l-5 5zm-7 2h14v2H5z\"/></svg>Download CV</button>",
+      "css": ".ds-btn{display:inline-flex;align-items:center;justify-content:center;gap:.5rem;min-height:44px;padding:.65rem 1.15rem;border-radius:999px;border:1px solid var(--glass-line-strong, rgba(255,255,255,.16));background:rgba(255,255,255,.06);color:var(--text, #eef1f5);font:600 .95rem/1 var(--font-body, Inter, system-ui, sans-serif);cursor:pointer;-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);transition:transform 140ms cubic-bezier(.16,1,.3,1),background-color 140ms cubic-bezier(.16,1,.3,1),border-color 140ms cubic-bezier(.16,1,.3,1),box-shadow 140ms cubic-bezier(.16,1,.3,1)}.ds-btn:active{transform:scale(.97)}.ds-btn:focus-visible{outline:2px solid var(--lime, #bdff00);outline-offset:3px}.ds-btn-primary{background:var(--lime, #bdff00);color:var(--lime-ink, #142000);border-color:transparent;box-shadow:0 1px 0 rgba(255,255,255,.35) inset,0 10px 24px -12px rgba(0,0,0,.7)}.ds-btn-primary:hover{background:#cbff3d;box-shadow:0 1px 0 rgba(255,255,255,.4) inset,0 14px 28px -12px rgba(0,0,0,.75)}"
+    },
+    {
+      "name": "Glass Button",
+      "kind": "button",
+      "refersTo": "button-glass",
+      "description": "Frosted pill for secondary actions (Contact me, View on GitHub, All posts).",
+      "html": "<button class=\"ds-btn-glass\">Contact me<svg viewBox=\"0 0 24 24\" width=\"18\" height=\"18\" fill=\"currentColor\" aria-hidden=\"true\"><path d=\"M12 4l-1.4 1.4 5.6 5.6H4v2h12.2l-5.6 5.6L12 20l8-8z\"/></svg></button>",
+      "css": ".ds-btn-glass{display:inline-flex;align-items:center;gap:.5rem;min-height:44px;padding:.65rem 1.15rem;border-radius:999px;border:1px solid rgba(255,255,255,.16);background:rgba(255,255,255,.06);color:#eef1f5;font:600 .95rem/1 Inter,system-ui,sans-serif;cursor:pointer;-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);transition:transform 140ms cubic-bezier(.16,1,.3,1),background-color 140ms cubic-bezier(.16,1,.3,1),border-color 140ms cubic-bezier(.16,1,.3,1)}.ds-btn-glass:hover{background:rgba(255,255,255,.11);border-color:rgba(255,255,255,.26)}.ds-btn-glass:active{transform:scale(.97)}.ds-btn-glass:focus-visible{outline:2px solid #bdff00;outline-offset:3px}"
+    },
+    {
+      "name": "Danger Button",
+      "kind": "button",
+      "refersTo": "button-danger",
+      "description": "Destructive admin action; confirmation happens inline.",
+      "html": "<button class=\"ds-btn-danger\">Delete post</button>",
+      "css": ".ds-btn-danger{display:inline-flex;align-items:center;min-height:36px;padding:.45rem .85rem;border-radius:999px;border:1px solid rgba(255,138,122,.35);background:rgba(255,255,255,.06);color:#ff8a7a;font:600 .85rem/1 Inter,system-ui,sans-serif;cursor:pointer;transition:background-color 140ms cubic-bezier(.16,1,.3,1),border-color 140ms cubic-bezier(.16,1,.3,1),transform 140ms cubic-bezier(.16,1,.3,1)}.ds-btn-danger:hover{background:rgba(255,110,90,.12);border-color:rgba(255,138,122,.6)}.ds-btn-danger:active{transform:scale(.97)}.ds-btn-danger:focus-visible{outline:2px solid #bdff00;outline-offset:3px}"
+    },
+    {
+      "name": "Chip and Live Badge",
+      "kind": "chip",
+      "refersTo": "chip",
+      "description": "Mono pill for stack and tags; lime badge marks a current project.",
+      "html": "<div class=\"ds-chips\"><span class=\"ds-badge-live\">Current</span><span class=\"ds-chip\">FastAPI</span><span class=\"ds-chip\">PostgreSQL</span><span class=\"ds-chip\">Gemini API</span></div>",
+      "css": ".ds-chips{display:flex;flex-wrap:wrap;gap:.45rem;align-items:center}.ds-chip{display:inline-flex;align-items:center;padding:.3rem .7rem;border-radius:999px;border:1px solid rgba(255,255,255,.09);background:rgba(255,255,255,.04);color:#c3cad5;font:400 .75rem/1.3 'JetBrains Mono',ui-monospace,monospace;white-space:nowrap}.ds-badge-live{display:inline-flex;align-items:center;padding:.3rem .7rem;border-radius:999px;background:rgba(189,255,0,.14);color:#bdff00;font:650 .75rem/1.3 Inter,system-ui,sans-serif;letter-spacing:.02em}"
+    },
+    {
+      "name": "Input",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "Dark well field with lime focus border and halo (admin).",
+      "html": "<label class=\"ds-field\"><span class=\"ds-field-label\">Title</span><input class=\"ds-input\" placeholder=\"Healthcare Stroke Prediction\"><span class=\"ds-field-hint\">Shown in post lists and under the title.</span></label>",
+      "css": ".ds-field{display:grid;gap:.4rem;max-width:420px}.ds-field-label{font:600 .82rem/1.3 Inter,system-ui,sans-serif;color:#c3cad5}.ds-field-hint{font:400 .78rem/1.4 Inter,system-ui,sans-serif;color:#8f98a6}.ds-input{min-height:42px;padding:.6rem .8rem;border-radius:10px;border:1px solid rgba(255,255,255,.16);background:rgba(6,8,11,.55);color:#eef1f5;font:400 15px/1.4 Inter,system-ui,sans-serif;caret-color:#bdff00;transition:border-color 140ms cubic-bezier(.16,1,.3,1),box-shadow 140ms cubic-bezier(.16,1,.3,1)}.ds-input::placeholder{color:#6c7584}.ds-input:hover{border-color:rgba(255,255,255,.24)}.ds-input:focus,.ds-input:focus-visible{outline:none;border-color:#bdff00;box-shadow:0 0 0 3px rgba(189,255,0,.15)}"
+    },
+    {
+      "name": "Nav Lens",
+      "kind": "nav",
+      "refersTo": "nav-lens",
+      "description": "Floating pill lens with brand, links, sliding indicator, lang toggle and lime Resume.",
+      "html": "<nav class=\"ds-nav\"><span class=\"ds-nav-brand\">Nguyen Nhat Bang</span><span class=\"ds-nav-links\"><a href=\"#\">About</a><a href=\"#\" aria-current=\"true\">Work</a><a href=\"#\">Skills</a><a href=\"#\">Blog</a></span><span class=\"ds-nav-actions\"><button class=\"ds-nav-lang\">VN</button><button class=\"ds-nav-cta\">Resume</button></span></nav>",
+      "css": ".ds-nav{display:flex;align-items:center;justify-content:space-between;gap:1rem;padding:.5rem .5rem .5rem .9rem;border-radius:999px;border:1px solid rgba(255,255,255,.09);background:linear-gradient(180deg,rgba(255,255,255,.07),rgba(255,255,255,0) 42%),rgba(20,25,32,.36);box-shadow:0 1px 0 rgba(255,255,255,.06) inset,0 24px 60px -28px rgba(0,0,0,.85),0 8px 24px -12px rgba(0,0,0,.5);-webkit-backdrop-filter:blur(12px) saturate(150%);backdrop-filter:blur(12px) saturate(150%);font-family:Inter,system-ui,sans-serif}.ds-nav-brand{font:650 1rem/1 Geist,Inter,sans-serif;letter-spacing:-.01em;color:#eef1f5}.ds-nav-links{display:flex;gap:.15rem}.ds-nav-links a{display:inline-flex;align-items:center;min-height:40px;padding:0 .85rem;border-radius:999px;color:#c3cad5;font-size:.9rem;font-weight:500;text-decoration:none;transition:color 140ms cubic-bezier(.16,1,.3,1),background-color 320ms cubic-bezier(.16,1,.3,1)}.ds-nav-links a:hover{color:#eef1f5}.ds-nav-links a[aria-current=true]{color:#eef1f5;background:rgba(255,255,255,.09);box-shadow:inset 0 1px 0 rgba(255,255,255,.08)}.ds-nav-links a:focus-visible,.ds-nav button:focus-visible{outline:2px solid #bdff00;outline-offset:3px}.ds-nav-actions{display:flex;gap:.4rem}.ds-nav-lang{min-height:36px;min-width:44px;border:0;border-radius:999px;background:transparent;color:#eef1f5;font:600 .8rem/1 'JetBrains Mono',monospace;letter-spacing:.04em;cursor:pointer}.ds-nav-lang:hover{background:rgba(255,255,255,.11)}.ds-nav-cta{min-height:36px;padding:.45rem .85rem;border:0;border-radius:999px;background:#bdff00;color:#142000;font:600 .85rem/1 Inter,sans-serif;cursor:pointer;box-shadow:0 1px 0 rgba(255,255,255,.35) inset}.ds-nav-cta:hover{background:#cbff3d}"
+    },
+    {
+      "name": "Lens Panel",
+      "kind": "card",
+      "refersTo": "lens",
+      "description": "The one glass material: sheen over translucent ink, hairline, 12px blur, lens shadow; hairline rules inside.",
+      "html": "<div class=\"ds-lens-stage\"><article class=\"ds-lens\"><h3>Certifications</h3><a href=\"#\">Deep Learning <span>&#8599;</span></a><a href=\"#\">Natural Language Processing <span>&#8599;</span></a><a href=\"#\">IBM Introduction to Machine Learning <span>&#8599;</span></a></article></div>",
+      "css": ".ds-lens-stage{padding:2rem;background:radial-gradient(55% 45% at 78% 32%,rgba(57,146,255,.35),transparent 70%),radial-gradient(35% 30% at 20% 80%,rgba(189,255,0,.12),transparent 70%),#0b0d10;border-radius:24px}.ds-lens{position:relative;max-width:420px;padding:clamp(1.4rem,3vw,2.25rem);border-radius:24px;border:1px solid rgba(255,255,255,.09);background:linear-gradient(180deg,rgba(255,255,255,.07),rgba(255,255,255,0) 42%),rgba(20,25,32,.36);box-shadow:0 1px 0 rgba(255,255,255,.06) inset,0 24px 60px -28px rgba(0,0,0,.85),0 8px 24px -12px rgba(0,0,0,.5);-webkit-backdrop-filter:blur(12px) saturate(150%);backdrop-filter:blur(12px) saturate(150%);color:#eef1f5;font-family:Inter,system-ui,sans-serif}.ds-lens h3{margin:0 0 1rem;font:650 1.15rem/1.12 Geist,Inter,sans-serif;letter-spacing:-.025em}.ds-lens a{display:flex;justify-content:space-between;min-height:48px;align-items:center;border-bottom:1px solid rgba(255,255,255,.09);color:#c3cad5;text-decoration:none;transition:color 140ms cubic-bezier(.16,1,.3,1)}.ds-lens a:last-child{border-bottom:0}.ds-lens a span{color:#8f98a6;transition:color 140ms cubic-bezier(.16,1,.3,1),transform 140ms cubic-bezier(.16,1,.3,1)}.ds-lens a:hover{color:#eef1f5}.ds-lens a:hover span{color:#bdff00;transform:translate(2px,-2px)}.ds-lens a:focus-visible{outline:2px solid #bdff00;outline-offset:3px;border-radius:6px}"
+    },
+    {
+      "name": "Timeline",
+      "kind": "custom",
+      "refersTo": "lens",
+      "description": "Signature experience list: lime-to-blue 1px rail, hollow nodes (first lime), mono periods.",
+      "html": "<ol class=\"ds-timeline\"><li><h4>AI Engineer</h4><p>10 Group Vietnam · Remote</p><span>Jul 2025 – Dec 2025</span></li><li><h4>Data Scientist / AI Automation Intern</h4><p>Insight Data · Hanoi</p><span>Aug 2025 – Dec 2025</span></li></ol>",
+      "css": ".ds-timeline{position:relative;margin:0;padding:1.5rem;list-style:none;border-radius:24px;border:1px solid rgba(255,255,255,.09);background:rgba(20,25,32,.6);color:#eef1f5;font-family:Inter,system-ui,sans-serif}.ds-timeline::before{content:'';position:absolute;top:1.5rem;bottom:1.5rem;left:calc(1.5rem + 5px);width:1px;background:linear-gradient(180deg,rgba(189,255,0,.6),rgba(57,146,255,.4) 60%,rgba(255,255,255,.06))}.ds-timeline li{position:relative;padding:0 0 1.6rem 2.2rem}.ds-timeline li:last-child{padding-bottom:0}.ds-timeline li::before{content:'';position:absolute;top:.4rem;left:0;width:11px;height:11px;border-radius:50%;background:#0b0d10;border:2px solid #3992ff;box-sizing:border-box}.ds-timeline li:first-child::before{border-color:#bdff00}.ds-timeline h4{margin:0;font:650 1.1rem/1.2 Geist,Inter,sans-serif;letter-spacing:-.025em}.ds-timeline p{margin:.2rem 0 0;color:#c3cad5;font-size:.9rem}.ds-timeline span{display:block;margin-top:.35rem;font:400 .78rem/1.3 'JetBrains Mono',monospace;color:#8f98a6;font-variant-numeric:tabular-nums}"
+    },
+    {
+      "name": "Admin Status and Save State",
+      "kind": "custom",
+      "refersTo": "status-draft",
+      "description": "Status pills (published lime, draft amber) and the save-state line.",
+      "html": "<div class=\"ds-status-row\"><span class=\"ds-status ds-status--published\">published</span><span class=\"ds-status ds-status--draft\">draft</span><span class=\"ds-save\" data-state=\"saved\">All changes saved</span><span class=\"ds-save\" data-state=\"dirty\">Unsaved changes</span></div>",
+      "css": ".ds-status-row{display:flex;flex-wrap:wrap;gap:.75rem;align-items:center;font-family:Inter,system-ui,sans-serif}.ds-status{display:inline-flex;align-items:center;gap:.35rem;padding:.15rem .55rem;border-radius:999px;font-size:.72rem;font-weight:650;background:rgba(255,255,255,.07);color:#c3cad5}.ds-status::before{content:'';width:6px;height:6px;border-radius:50%;background:currentColor}.ds-status--published{background:rgba(189,255,0,.14);color:#bdff00}.ds-status--draft{background:rgba(255,210,122,.12);color:#ffd27a}.ds-save{font-size:.82rem;color:#8f98a6;font-variant-numeric:tabular-nums}.ds-save[data-state=saved]{color:#bdff00}.ds-save[data-state=dirty]{color:#ffd27a}.ds-save[data-state=error]{color:#ff8a7a}"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Lens Over Latent Space",
+    "overview": "The site is a dark observation deck. Behind everything runs a WebGL field of a few thousand blue points with sparse lime activations, and it reorganizes itself as the visitor reads. Every raised surface is the same frosted lens material. Each lens blurs and tints the field behind it but never blocks it out completely, so the content always sits *in front of* something alive. That is the whole idea: the glass reads as optics, not as decoration.\n\nDensity is calm and editorial. Each home section is one big Geist headline, a short lead paragraph and one or two lenses. Layout is left-weighted, with the field drifting on the right half. Colour discipline is strict. Ink is the ground, blue is the ambient structure, and lime is a signal reserved for action, live state, focus and hover response. Motion is spent on arrivals (the intro, section reveals, view swaps, field morphs) and stays still while the visitor is reading. The admin workbench uses the same material with the motion taken out: lenses over a static two-field gradient, no WebGL.\n\nThe build carries one shared stylesheet (`tokens.css`) for the material, buttons, chips and meta text. The public site (`site.css`), the blog reader blocks (`article.css`, shared with the admin preview) and the admin workbench (`admin.css`) are layered on top of it.",
+    "keyCharacteristics": [
+      "One glass material (`.lens`) on every surface, in two opacities: standard and strong (reading).",
+      "A three-layer backdrop: CSS gradient fallback, then the WebGL point field, then a legibility veil.",
+      "The three.js point field morphs between seven deterministic shapes, one per section or route.",
+      "Near-black ink ground, signal blue for structure, cyber lime only as a signal.",
+      "Geist for headings, Inter for reading, JetBrains Mono only for data (dates, tags, code, counts).",
+      "Pill-shaped actions and chips, with large nested radii on lenses (32 / 24 / 16 / 10px).",
+      "GSAP expo-out arrivals. Everything is off under `prefers-reduced-motion`, and content is never hidden if scripts fail."
+    ],
+    "rules": [
+      {
+        "name": "The Activation Rule",
+        "body": "Lime means \"act here\" or \"this is live\". It may fill only the primary action, and it never colours body text or decorates a surface at rest. In the field it is limited to about 11% of points. On a screen it is one filled button per action group.",
+        "section": "colors"
+      },
+      {
+        "name": "The Blue Is The Field Rule",
+        "body": "Blue carries structure and atmosphere (field, glows, rails, role line, icon wells). It never fills a button.",
+        "section": "colors"
+      },
+      {
+        "name": "The Hairline Rule",
+        "body": "Borders are white at 9% or 16% alpha, 1px. No coloured borders, except the danger stroke and the lime focus border on inputs.",
+        "section": "colors"
+      },
+      {
+        "name": "The Three Voices Rule",
+        "body": "Geist speaks in headings, Inter carries reading, and JetBrains Mono appears only for data: dates, tags, code, counts, language codes. Never set prose or headings in mono.",
+        "section": "typography"
+      },
+      {
+        "name": "The Tighten With Size Rule",
+        "body": "Letter-spacing gets more negative as size grows: -0.01em on the brand, -0.025em by default on h1 to h4, -0.035em on section titles and -0.045em on display. Body text is never tracked. Headings use `text-wrap: balance`, paragraphs use `pretty`.",
+        "section": "typography"
+      },
+      {
+        "name": "The One Material Rule",
+        "body": "Every raised surface uses `.lens`. Variants change only fill opacity and blur radius, never the material: no solid cards, no second panel style.",
+        "section": "elevation"
+      },
+      {
+        "name": "The Lens Must See Something Rule",
+        "body": "A lens always sits over the field or the backdrop gradient. Glass over flat ink is pointless, which is why the admin keeps its static two-field gradient.",
+        "section": "elevation"
+      },
+      {
+        "name": "The Veil Before Glass Rule",
+        "body": "Legibility comes from the veil and the lens fill, not from dimming the field. Increase lens opacity (`glass-strong`) for reading. Do not drop the field.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "**Do** build every new surface as a `.lens` over the field or backdrop gradient. Use `.lens--strong` when it holds long-form reading.",
+      "**Do** keep lime to one filled primary action per group, plus live, saved and focus states (The Activation Rule).",
+      "**Do** use Hairline borders (1px, 9% or 16% white) and divide content inside a lens with rules, not nested lenses.",
+      "**Do** step radii down as you nest: 32px outer project/reader lens, 24px panel, 16px inner block, 10px control, pill for actions.",
+      "**Do** set dates, tags, code and counts in JetBrains Mono with tabular numerals, and everything else in Geist/Inter.",
+      "**Do** give each new home section a `data-shape` and its own reveal fitted to its content, using expo-out, a one-shot ScrollTrigger, and at most about 56px of travel.",
+      "**Do** keep content visible without JavaScript or motion: gate hidden states behind `motion-ok` and honour `prefers-reduced-motion`.",
+      "**Do** confirm destructive admin actions inline with the danger-wash pill."
+    ],
+    "donts": [
+      "**Don't** introduce solid opaque cards, a second panel material or a light theme. The world is a single dark glass material.",
+      "**Don't** fill buttons or large areas with Signal Blue. Blue is atmosphere and structure.",
+      "**Don't** add a new accent hue. Amber and salmon are admin state colours only.",
+      "**Don't** set lime as body text or as a resting decorative fill.",
+      "**Don't** run the WebGL field in the admin. The workbench stays still on its static gradient.",
+      "**Don't** use hard offset shadows or coloured glows. Depth comes from blur, hairlines and the lens ambient shadow.",
+      "**Don't** put uppercase eyebrows or kickers above section titles. Headings stand alone.",
+      "**Don't** use native `alert` or `confirm` dialogs in the admin.",
+      "**Don't** loop decorative animation. The status dot pulses three times and the field drifts. Nothing else moves at rest."
+    ]
+  }
+}

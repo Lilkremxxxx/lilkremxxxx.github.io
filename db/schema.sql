@@ -65,3 +65,9 @@ CREATE TRIGGER trg_blog_posts_updated_at
 BEFORE UPDATE ON blog_posts
 FOR EACH ROW
 EXECUTE FUNCTION set_updated_at();
+
+CREATE TABLE IF NOT EXISTS site_sections (
+  key TEXT PRIMARY KEY,
+  data JSONB NOT NULL,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);

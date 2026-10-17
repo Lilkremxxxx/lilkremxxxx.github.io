@@ -1,13 +1,34 @@
 import cors from 'cors';
 import express from 'express';
 import { Pool } from 'pg';
+import { createHmac, scryptSync, timingSafeEqual } from 'node:crypto';
 
 const app = express();
 const adminApiKey = process.env.ADMIN_API_KEY || '';
+const adminPasswordHash = process.env.ADMIN_PASSWORD_HASH || '';
+const adminTokenSecret = process.env.ADMIN_TOKEN_SECRET || '';
+const tokenTtlMs = Number(process.env.ADMIN_TOKEN_TTL_HOURS || 12) * 60 * 60 * 1000;
+const corsOrigins = (process.env.CORS_ORIGINS || 'https://lilkremxxxx.github.io,http://localhost:5500,http://127.0.0.1:5500')
+  .split(',')
+  .map((origin) => origin.trim())
+  .filter(Boolean);
+
+const POST_STATUSES = ['draft', 'published', 'archived'];
+const SITE_SECTION_KEYS = ['hero', 'about', 'education', 'skills', 'projects', 'contact', 'social'];
+const SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+const MAX_SECTION_BYTES = 200 * 1024;
+
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: process.env.PGSSL === 'true' ? { rejectUnauthorized: false } : undefined
 });
+
+class HttpError extends Error {
+  constructor(status, message) {
+    super(message);
+    this.status = status;
+  }
+}
 
 const toTagSlug = (tagName) =>
   tagName
@@ -39,6 +60,12 @@ const normalizeBlocks = (blocks) =>
     })
     .filter(Boolean);
 
+const parseJsonColumn = (value) => {
+  if (Array.isArray(value)) return value;
+  if (typeof value === 'string' && value.length) return JSON.parse(value);
+  return [];
+};
+
 const normalizePost = (row) => ({
   id: row.id,
   slug: row.slug,
@@ -47,23 +74,137 @@ const normalizePost = (row) => ({
   coverImageUrl: row.cover_image_url,
   contentMarkdown: row.content_markdown,
   contentHtml: row.content_html,
-  contentBlocks: Array.isArray(row.content_blocks)
-    ? row.content_blocks
-    : typeof row.content_blocks === 'string' && row.content_blocks.length
-      ? JSON.parse(row.content_blocks)
-      : [],
+  contentBlocks: parseJsonColumn(row.content_blocks),
   status: row.status,
   language: row.language,
   readingTimeMinutes: row.reading_time_minutes,
   publishedAt: row.published_at,
+  updatedAt: row.updated_at,
   seoTitle: row.seo_title,
   seoDescription: row.seo_description,
-  tags: Array.isArray(row.tags)
-    ? row.tags
-    : typeof row.tags === 'string' && row.tags.length
-      ? JSON.parse(row.tags)
-      : []
+  tags: parseJsonColumn(row.tags)
 });
+
+// ---------- Admin auth ----------
+
+const safeEqual = (a, b) => {
+  const left = Buffer.from(String(a));
+  const right = Buffer.from(String(b));
+  return left.length === right.length && timingSafeEqual(left, right);
+};
+
+// ADMIN_PASSWORD_HASH format: scrypt:<salt hex>:<hash hex> (written by scripts/set-admin-password.mjs)
+function verifyPassword(password) {
+  const [scheme, saltHex, hashHex] = adminPasswordHash.split(':');
+  if (scheme !== 'scrypt' || !saltHex || !hashHex) return false;
+  const expected = Buffer.from(hashHex, 'hex');
+  const actual = scryptSync(String(password), Buffer.from(saltHex, 'hex'), expected.length);
+  return timingSafeEqual(actual, expected);
+}
+
+// The signing key includes the password hash, so changing the password revokes every issued token.
+const tokenSigningKey = () => `${adminTokenSecret}:${adminPasswordHash}`;
+
+function signToken(payload) {
+  const body = Buffer.from(JSON.stringify(payload)).toString('base64url');
+  const signature = createHmac('sha256', tokenSigningKey()).update(body).digest('base64url');
+  return `${body}.${signature}`;
+}
+
+function verifyToken(token) {
+  const [body, signature] = String(token || '').split('.');
+  if (!body || !signature || !adminTokenSecret || !adminPasswordHash) return null;
+  const expected = createHmac('sha256', tokenSigningKey()).update(body).digest('base64url');
+  if (!safeEqual(signature, expected)) return null;
+  try {
+    const payload = JSON.parse(Buffer.from(body, 'base64url').toString('utf8'));
+    return payload.exp > Date.now() ? payload : null;
+  } catch (_error) {
+    return null;
+  }
+}
+
+const passwordLoginEnabled = () => Boolean(adminPasswordHash && adminTokenSecret);
+const adminAuthConfigured = () => passwordLoginEnabled() || Boolean(adminApiKey);
+
+function isAdmin(req) {
+  const authHeader = req.header('authorization') || '';
+  if (authHeader.startsWith('Bearer ') && verifyToken(authHeader.slice(7))) return true;
+  const key = req.header('x-admin-key');
+  return Boolean(adminApiKey && key && safeEqual(key, adminApiKey));
+}
+
+const requireAdmin = (req, res, next) => {
+  if (!adminAuthConfigured()) {
+    return res.status(503).json({ error: 'Admin auth is not configured on the server' });
+  }
+  if (!isAdmin(req)) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+  next();
+};
+
+const loginAttempts = new Map();
+const LOGIN_WINDOW_MS = 15 * 60 * 1000;
+const LOGIN_MAX_FAILURES = 5;
+
+const clientIp = (req) =>
+  req.header('cf-connecting-ip') || String(req.header('x-forwarded-for') || '').split(',')[0].trim() || req.ip;
+
+function loginBlockedFor(ip) {
+  const entry = loginAttempts.get(ip);
+  if (!entry || entry.resetAt < Date.now()) return 0;
+  return entry.failures >= LOGIN_MAX_FAILURES ? Math.ceil((entry.resetAt - Date.now()) / 1000) : 0;
+}
+
+function recordLoginFailure(ip) {
+  const now = Date.now();
+  const entry = loginAttempts.get(ip);
+  if (!entry || entry.resetAt < now) {
+    loginAttempts.set(ip, { failures: 1, resetAt: now + LOGIN_WINDOW_MS });
+  } else {
+    entry.failures += 1;
+  }
+}
+
+// ---------- Validation ----------
+
+function readPostInput(body, { requireSlug }) {
+  const input = body || {};
+  const slug = String(input.slug || '').trim();
+  const title = String(input.title || '').trim();
+  const status = String(input.status || 'draft');
+  const readingTimeMinutes = Math.max(1, Math.round(Number(input.readingTimeMinutes) || 1));
+
+  if (requireSlug && !SLUG_PATTERN.test(slug)) {
+    throw new HttpError(400, 'Slug must use lowercase letters, numbers and single hyphens');
+  }
+  if (!title) throw new HttpError(400, 'Title is required');
+  if (!POST_STATUSES.includes(status)) throw new HttpError(400, 'Unknown status');
+
+  let publishedAt = input.publishedAt ? new Date(input.publishedAt) : null;
+  if (publishedAt && Number.isNaN(publishedAt.getTime())) throw new HttpError(400, 'Invalid publish date');
+  if (!publishedAt && status === 'published') publishedAt = new Date();
+
+  return {
+    slug,
+    title,
+    excerpt: String(input.excerpt || ''),
+    coverImageUrl: input.coverImageUrl ? String(input.coverImageUrl) : null,
+    contentMarkdown: String(input.contentMarkdown || ''),
+    contentHtml: String(input.contentHtml || ''),
+    contentBlocks: JSON.stringify(normalizeBlocks(input.contentBlocks)),
+    status,
+    language: String(input.language || 'en'),
+    readingTimeMinutes,
+    publishedAt: publishedAt ? publishedAt.toISOString() : null,
+    seoTitle: input.seoTitle ? String(input.seoTitle) : null,
+    seoDescription: input.seoDescription ? String(input.seoDescription) : null,
+    tags: normalizeTags(input.tags)
+  };
+}
+
+// ---------- Data helpers ----------
 
 async function syncPostTags(client, postId, tagNames) {
   await client.query('DELETE FROM blog_post_tags WHERE post_id = $1', [postId]);
@@ -95,81 +236,114 @@ async function syncPostTags(client, postId, tagNames) {
   }
 }
 
-async function fetchPostBySlug(client, slug) {
-  const { rows } = await client.query(
-    `
-      SELECT
-        p.*,
-        COALESCE(
-          json_agg(t.name ORDER BY t.name) FILTER (WHERE t.name IS NOT NULL),
-          '[]'
-        ) AS tags
-      FROM blog_posts p
-      LEFT JOIN blog_post_tags pt ON pt.post_id = p.id
-      LEFT JOIN blog_tags t ON t.id = pt.tag_id
-      WHERE p.slug = $1
-      GROUP BY p.id
-      LIMIT 1
-    `,
-    [slug]
-  );
+const POST_SELECT = `
+  SELECT
+    p.*,
+    COALESCE(
+      json_agg(t.name ORDER BY t.name) FILTER (WHERE t.name IS NOT NULL),
+      '[]'
+    ) AS tags
+  FROM blog_posts p
+  LEFT JOIN blog_post_tags pt ON pt.post_id = p.id
+  LEFT JOIN blog_tags t ON t.id = pt.tag_id
+`;
 
+async function fetchPostBySlug(client, slug) {
+  const { rows } = await client.query(`${POST_SELECT} WHERE p.slug = $1 GROUP BY p.id LIMIT 1`, [slug]);
   return rows[0] || null;
 }
 
-async function rollbackAndFail(client, res, error) {
+async function withTransaction(work) {
+  const client = await pool.connect();
   try {
-    await client.query('ROLLBACK');
-  } catch (_rollbackError) {
-    // Ignore rollback failures so the original error can still be reported.
+    await client.query('BEGIN');
+    const result = await work(client);
+    await client.query('COMMIT');
+    return result;
+  } catch (error) {
+    try {
+      await client.query('ROLLBACK');
+    } catch (_rollbackError) {
+      // Ignore rollback failures so the original error can still be reported.
+    }
+    throw error;
+  } finally {
+    client.release();
   }
-
-  console.error(error);
-  res.status(500).json({ error: 'Database operation failed' });
 }
 
-const requireAdminKey = (req, res, next) => {
-  if (!adminApiKey) return next();
-  if (req.header('x-admin-key') !== adminApiKey) {
-    return res.status(401).json({ error: 'Unauthorized' });
-  }
-  next();
-};
+// ---------- Middleware ----------
 
-app.use(cors());
+app.use(cors({
+  origin(origin, callback) {
+    // Requests without an Origin header (curl, server-to-server) are allowed; browsers always send one.
+    callback(null, !origin || corsOrigins.includes(origin));
+  }
+}));
 app.use(express.json({ limit: '2mb' }));
+
+// ---------- Health & auth ----------
 
 app.get('/api/health', async (_req, res) => {
   try {
     await pool.query('SELECT 1');
     res.json({ ok: true });
-  } catch (error) {
+  } catch (_error) {
     res.status(500).json({ ok: false, error: 'Database connection failed' });
   }
 });
 
-app.get('/api/blog/posts', async (req, res) => {
-  const limit = Math.min(Number(req.query.limit || 20), 100);
-  const offset = Math.max(Number(req.query.offset || 0), 0);
-  const status = req.query.status || 'published';
+app.post('/api/admin/login', (req, res) => {
+  if (!passwordLoginEnabled()) {
+    return res.status(503).json({ error: 'Password login is not configured. Run npm run admin:set-password on the server.' });
+  }
 
+  const ip = clientIp(req);
+  const retryAfter = loginBlockedFor(ip);
+  if (retryAfter) {
+    res.set('Retry-After', String(retryAfter));
+    return res.status(429).json({ error: `Too many attempts. Try again in ${Math.ceil(retryAfter / 60)} min.` });
+  }
+
+  if (!verifyPassword(req.body?.password || '')) {
+    recordLoginFailure(ip);
+    return res.status(401).json({ error: 'Wrong password' });
+  }
+
+  loginAttempts.delete(ip);
+  const expiresAt = Date.now() + tokenTtlMs;
+  res.json({ token: signToken({ sub: 'admin', exp: expiresAt }), expiresAt });
+});
+
+app.get('/api/admin/session', requireAdmin, (_req, res) => {
+  res.json({ ok: true });
+});
+
+// ---------- Blog posts ----------
+
+app.get('/api/blog/posts', async (req, res) => {
+  const limit = Math.min(Math.max(Number(req.query.limit) || 20, 1), 100);
+  const offset = Math.max(Number(req.query.offset) || 0, 0);
+  const status = String(req.query.status || 'published');
+
+  if (status !== 'published' && !isAdmin(req)) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+  if (status !== 'all' && !POST_STATUSES.includes(status)) {
+    return res.status(400).json({ error: 'Unknown status' });
+  }
+
+  const where = status === 'all' ? '' : 'WHERE p.status = $3';
+  const params = status === 'all' ? [limit, offset] : [limit, offset, status];
   const { rows } = await pool.query(
     `
-      SELECT
-        p.*,
-        COALESCE(
-          json_agg(t.name ORDER BY t.name) FILTER (WHERE t.name IS NOT NULL),
-          '[]'
-        ) AS tags
-      FROM blog_posts p
-      LEFT JOIN blog_post_tags pt ON pt.post_id = p.id
-      LEFT JOIN blog_tags t ON t.id = pt.tag_id
-      WHERE p.status = $1
+      ${POST_SELECT}
+      ${where}
       GROUP BY p.id
       ORDER BY p.published_at DESC NULLS LAST, p.created_at DESC
-      LIMIT $2 OFFSET $3
+      LIMIT $1 OFFSET $2
     `,
-    [status, limit, offset]
+    params
   );
 
   res.json({ items: rows.map(normalizePost), limit, offset });
@@ -178,34 +352,17 @@ app.get('/api/blog/posts', async (req, res) => {
 app.get('/api/blog/posts/:slug', async (req, res) => {
   const row = await fetchPostBySlug(pool, req.params.slug);
 
-  if (!row) {
+  if (!row || (row.status !== 'published' && !isAdmin(req))) {
     return res.status(404).json({ error: 'Post not found' });
   }
 
   res.json({ item: normalizePost(row) });
 });
 
-app.post('/api/blog/posts', requireAdminKey, async (req, res) => {
-  const {
-    slug,
-    title,
-    excerpt = '',
-    coverImageUrl = null,
-    contentMarkdown = '',
-    contentHtml = '',
-    contentBlocks = [],
-    status = 'draft',
-    language = 'en',
-    readingTimeMinutes = 1,
-    publishedAt = null,
-    seoTitle = null,
-    seoDescription = null,
-    tags = []
-  } = req.body || {};
+app.post('/api/blog/posts', requireAdmin, async (req, res) => {
+  const post = readPostInput(req.body, { requireSlug: true });
 
-  const client = await pool.connect();
-  try {
-    await client.query('BEGIN');
+  const row = await withTransaction(async (client) => {
     const insertResult = await client.query(
       `
         INSERT INTO blog_posts (
@@ -215,42 +372,20 @@ app.post('/api/blog/posts', requireAdminKey, async (req, res) => {
         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
         RETURNING id, slug
       `,
-      [slug, title, excerpt, coverImageUrl, contentMarkdown, contentHtml, JSON.stringify(normalizeBlocks(contentBlocks)), status, language, readingTimeMinutes, publishedAt, seoTitle, seoDescription]
+      [post.slug, post.title, post.excerpt, post.coverImageUrl, post.contentMarkdown, post.contentHtml, post.contentBlocks, post.status, post.language, post.readingTimeMinutes, post.publishedAt, post.seoTitle, post.seoDescription]
     );
 
-    await syncPostTags(client, insertResult.rows[0].id, tags);
+    await syncPostTags(client, insertResult.rows[0].id, post.tags);
+    return fetchPostBySlug(client, insertResult.rows[0].slug);
+  });
 
-    const row = await fetchPostBySlug(client, insertResult.rows[0].slug);
-    await client.query('COMMIT');
-
-    res.status(201).json({ item: normalizePost(row) });
-  } catch (error) {
-    await rollbackAndFail(client, res, error);
-  } finally {
-    client.release();
-  }
+  res.status(201).json({ item: normalizePost(row) });
 });
 
-app.put('/api/blog/posts/:slug', requireAdminKey, async (req, res) => {
-  const {
-    title,
-    excerpt = '',
-    coverImageUrl = null,
-    contentMarkdown = '',
-    contentHtml = '',
-    contentBlocks = [],
-    status = 'draft',
-    language = 'en',
-    readingTimeMinutes = 1,
-    publishedAt = null,
-    seoTitle = null,
-    seoDescription = null,
-    tags = []
-  } = req.body || {};
+app.put('/api/blog/posts/:slug', requireAdmin, async (req, res) => {
+  const post = readPostInput(req.body, { requireSlug: false });
 
-  const client = await pool.connect();
-  try {
-    await client.query('BEGIN');
+  const row = await withTransaction(async (client) => {
     const updateResult = await client.query(
       `
         UPDATE blog_posts
@@ -269,31 +404,131 @@ app.put('/api/blog/posts/:slug', requireAdminKey, async (req, res) => {
         WHERE slug = $1
         RETURNING id, slug
       `,
-      [req.params.slug, title, excerpt, coverImageUrl, contentMarkdown, contentHtml, JSON.stringify(normalizeBlocks(contentBlocks)), status, language, readingTimeMinutes, publishedAt, seoTitle, seoDescription]
+      [req.params.slug, post.title, post.excerpt, post.coverImageUrl, post.contentMarkdown, post.contentHtml, post.contentBlocks, post.status, post.language, post.readingTimeMinutes, post.publishedAt, post.seoTitle, post.seoDescription]
     );
 
-    if (!updateResult.rows.length) {
-      await client.query('ROLLBACK');
-      return res.status(404).json({ error: 'Post not found' });
-    }
+    if (!updateResult.rows.length) throw new HttpError(404, 'Post not found');
 
-    await syncPostTags(client, updateResult.rows[0].id, tags);
+    await syncPostTags(client, updateResult.rows[0].id, post.tags);
+    return fetchPostBySlug(client, updateResult.rows[0].slug);
+  });
 
-    const row = await fetchPostBySlug(client, updateResult.rows[0].slug);
-    await client.query('COMMIT');
-
-    res.json({ item: normalizePost(row) });
-  } catch (error) {
-    await rollbackAndFail(client, res, error);
-  } finally {
-    client.release();
-  }
+  res.json({ item: normalizePost(row) });
 });
 
-app.delete('/api/blog/posts/:slug', requireAdminKey, async (req, res) => {
+app.delete('/api/blog/posts/:slug', requireAdmin, async (req, res) => {
   const result = await pool.query('DELETE FROM blog_posts WHERE slug = $1 RETURNING id', [req.params.slug]);
   if (!result.rowCount) return res.status(404).json({ error: 'Post not found' });
   res.status(204).end();
+});
+
+// ---------- Tags ----------
+
+app.get('/api/blog/tags', async (req, res) => {
+  const includeAll = req.query.scope === 'all';
+  if (includeAll && !isAdmin(req)) return res.status(401).json({ error: 'Unauthorized' });
+
+  const { rows } = await pool.query(
+    `
+      SELECT t.slug, t.name, COUNT(p.id)::int AS post_count
+      FROM blog_tags t
+      LEFT JOIN blog_post_tags pt ON pt.tag_id = t.id
+      LEFT JOIN blog_posts p ON p.id = pt.post_id ${includeAll ? '' : "AND p.status = 'published'"}
+      GROUP BY t.id
+      ORDER BY t.name
+    `
+  );
+
+  res.json({ items: rows.map((row) => ({ slug: row.slug, name: row.name, postCount: row.post_count })) });
+});
+
+app.patch('/api/blog/tags/:slug', requireAdmin, async (req, res) => {
+  const name = String(req.body?.name || '').trim();
+  const nextSlug = toTagSlug(name);
+  if (!nextSlug) return res.status(400).json({ error: 'Tag name must contain letters or numbers' });
+
+  const tag = await withTransaction(async (client) => {
+    const current = await client.query('SELECT id FROM blog_tags WHERE slug = $1', [req.params.slug]);
+    if (!current.rowCount) throw new HttpError(404, 'Tag not found');
+    const currentId = current.rows[0].id;
+
+    const target = await client.query('SELECT id FROM blog_tags WHERE slug = $1 AND id <> $2', [nextSlug, currentId]);
+    if (target.rowCount) {
+      // Renaming onto an existing tag merges the two.
+      const targetId = target.rows[0].id;
+      await client.query(
+        `
+          INSERT INTO blog_post_tags (post_id, tag_id)
+          SELECT post_id, $2 FROM blog_post_tags WHERE tag_id = $1
+          ON CONFLICT DO NOTHING
+        `,
+        [currentId, targetId]
+      );
+      await client.query('DELETE FROM blog_tags WHERE id = $1', [currentId]);
+      const merged = await client.query('UPDATE blog_tags SET name = $2 WHERE id = $1 RETURNING slug, name', [targetId, name]);
+      return { ...merged.rows[0], merged: true };
+    }
+
+    const renamed = await client.query('UPDATE blog_tags SET slug = $2, name = $3 WHERE id = $1 RETURNING slug, name', [currentId, nextSlug, name]);
+    return { ...renamed.rows[0], merged: false };
+  });
+
+  res.json({ item: tag });
+});
+
+app.delete('/api/blog/tags/:slug', requireAdmin, async (req, res) => {
+  const result = await pool.query('DELETE FROM blog_tags WHERE slug = $1 RETURNING id', [req.params.slug]);
+  if (!result.rowCount) return res.status(404).json({ error: 'Tag not found' });
+  res.status(204).end();
+});
+
+// ---------- Home page sections ----------
+
+app.get('/api/site', async (_req, res) => {
+  const { rows } = await pool.query('SELECT key, data, updated_at FROM site_sections');
+  const sections = {};
+  for (const row of rows) sections[row.key] = { data: row.data, updatedAt: row.updated_at };
+  res.json({ sections });
+});
+
+app.put('/api/site/:key', requireAdmin, async (req, res) => {
+  const { key } = req.params;
+  const data = req.body?.data;
+  if (!SITE_SECTION_KEYS.includes(key)) return res.status(404).json({ error: 'Unknown section' });
+  if (!data || typeof data !== 'object' || Array.isArray(data)) return res.status(400).json({ error: 'Section data must be an object' });
+  if (Buffer.byteLength(JSON.stringify(data)) > MAX_SECTION_BYTES) return res.status(413).json({ error: 'Section is too large' });
+
+  const { rows } = await pool.query(
+    `
+      INSERT INTO site_sections (key, data)
+      VALUES ($1, $2)
+      ON CONFLICT (key) DO UPDATE SET data = EXCLUDED.data, updated_at = NOW()
+      RETURNING key, data, updated_at
+    `,
+    [key, JSON.stringify(data)]
+  );
+
+  res.json({ section: { key: rows[0].key, data: rows[0].data, updatedAt: rows[0].updated_at } });
+});
+
+app.delete('/api/site/:key', requireAdmin, async (req, res) => {
+  if (!SITE_SECTION_KEYS.includes(req.params.key)) return res.status(404).json({ error: 'Unknown section' });
+  await pool.query('DELETE FROM site_sections WHERE key = $1', [req.params.key]);
+  res.status(204).end();
+});
+
+// ---------- Errors ----------
+
+app.use((_req, res) => {
+  res.status(404).json({ error: 'Not found' });
+});
+
+app.use((error, _req, res, _next) => {
+  if (error instanceof HttpError) return res.status(error.status).json({ error: error.message });
+  if (error?.type === 'entity.too.large') return res.status(413).json({ error: 'Request body is too large' });
+  if (error?.code === '23505') return res.status(409).json({ error: 'A post with this slug already exists' });
+  console.error(error);
+  res.status(500).json({ error: 'Database operation failed' });
 });
 
 export default app;

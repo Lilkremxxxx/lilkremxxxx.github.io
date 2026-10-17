@@ -171,7 +171,7 @@ VALUES
     {"id":"lung-5g","type":"heading","data":{"level":3,"text":"D. Preprocessing Analysis"}},
     {"id":"lung-5h","type":"paragraph","data":{"text":"The denoising example shows that the preprocessing step reduces noise without erasing lesion boundaries. That matters because the handcrafted descriptors are sensitive to local texture and edge structure."}},
     {"id":"lung-5i","type":"heading","data":{"level":3,"text":"E. External Generalizability Evaluation"}},
-    {"id":"lung-5j","type":"paragraph","data":{"text":"An external dataset is used to check whether the model generalizes beyond the source distribution. This section is the paper's answer to the usual criticism that medical models only work on one dataset."}},
+    {"id":"lung-5j","type":"paragraph","data":{"text":"An external dataset is used to check whether the model generalizes beyond the source distribution. This section is the paper''s answer to the usual criticism that medical models only work on one dataset."}},
     {"id":"lung-5k","type":"heading","data":{"level":3,"text":"F. Edge Deployment Validation"}},
     {"id":"lung-5l","type":"paragraph","data":{"text":"The C++ runtime is validated against the Python implementation to confirm feature parity and consistent outputs. The deployment story is as important as the classifier accuracy because the goal is practical portability."}},
     {"id":"lung-table-1","type":"table","data":{"title":"Table I. IQ-OTHNCCD dataset statistics","headers":["Class","Number of Images","Percentage"],"rows":[["Benign","120","10.94%"],["Malignant","561","51.14%"],["Normal","416","37.92%"],["Total","1,097","100.00%"]]}},

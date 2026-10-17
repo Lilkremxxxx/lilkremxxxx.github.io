@@ -1,26 +1,51 @@
-# Blog Admin
+# Blog & site admin
 
-## Local setup
+Admin UI: `https://lilkremxxxx.github.io/admin/` (file `admin/index.html`). It edits blog posts, tags and every home-page section through the API at `https://blog-api.verbaa.pp.ua`.
 
-1. Copy `.env.example` to `.env`.
-2. Set `DATABASE_URL=postgresql://cloud:cloud_pass@100.82.138.69:5432/nhatbang-web`.
-3. Set `PORT=8787`.
-4. Set `ADMIN_API_KEY=lilkremxxx-admin-dev-2026`.
-5. Set `BLOG_PUBLIC_API_BASE=https://blog-api.verbaa.pp.ua`.
-6. Install dependencies with `npm install`.
-7. Apply the schema with `npm run db:schema`.
-8. Load the seed data with `npm run db:seed`.
-9. Start the API with `npm run dev:api`.
+Never write real passwords, keys or connection strings in this repo — it is public.
 
-## Admin usage
+## Server setup (mini PC)
 
-1. Open the site at `http://localhost:8787/admin/blog`.
-2. In the browser console, set the admin key with:
+`.env` (not committed) needs:
 
-```js
-localStorage.setItem('blog_admin_key', 'lilkremxxx-admin-dev-2026')
+```env
+DATABASE_URL=postgresql://<user>:<password>@<host>:5432/<database>
+PORT=8787
+PGSSL=false
+ADMIN_PASSWORD_HASH=...   # written by npm run admin:set-password
+ADMIN_TOKEN_SECRET=...    # written by npm run admin:set-password if missing
+# Optional:
+# ADMIN_API_KEY=...       # x-admin-key header for scripts
+# CORS_ORIGINS=https://lilkremxxxx.github.io,http://localhost:5500
+# ADMIN_TOKEN_TTL_HOURS=12
 ```
 
-3. Refresh the page so the admin list loads with the key attached.
-4. Use the form to create a post, or select an existing post from the list to edit it.
-5. Save the post, then confirm the list refreshes and the public blog view shows the updated content.
+1. `npm install`
+2. Database (new DB): `npm run db:schema` then `npm run db:seed`.
+   Existing DB: `npm run db:migrate:site-sections` (adds the `site_sections` table).
+3. Set the admin password: `npm run admin:set-password` (prompts, min 10 characters).
+4. Restart the API: `systemctl --user restart blog-backend`.
+
+Changing the password revokes every issued login token.
+
+## Using the admin
+
+- Sign in with the password. The session lasts 12 hours (stored in this browser).
+- **Posts**: search, filter by status, create, edit, delete (inline confirm). Content is a list of blocks
+  (paragraph, heading, image, code, quote, link, table) with a live preview. `Ctrl/Cmd + S` saves.
+  Code blocks only show on the site under Method/Implementation/Pipeline/Model/Data/Results-style headings — the editor warns when one will be hidden.
+- **Tags**: rename (renaming onto an existing name merges the two) or delete.
+- **Home page**: one form per section (Hero, About & experience, Projects, Skills, Education, Contact, Links & CV).
+  Each text has English and optional Vietnamese. Saving makes it live immediately; "Reset to default" returns to the built-in text in `assets/js/content.js`.
+- Images: add files to `assets/blog/` in the repo and push, then use `/assets/blog/<file>` as the URL.
+
+## Local development
+
+```bash
+# API against a local/test database
+set -a; . ./.env; set +a; npm run dev:api        # http://localhost:8787
+# Static site that behaves like GitHub Pages (404.html fallback)
+npm run dev:static                               # http://localhost:5500
+```
+
+Open `http://localhost:5500/?api=http://localhost:8787` (or `/admin/?api=...`). The `?api=` override only works on localhost.

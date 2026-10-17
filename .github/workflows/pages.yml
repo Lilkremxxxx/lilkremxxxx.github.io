@@ -24,7 +24,7 @@ jobs:
         run: |
           rm -rf _site
           mkdir -p _site
-          cp -R index.html 404.html assets db docs *.pdf *.png _site/ 2>/dev/null || true
+          cp -R index.html 404.html admin assets *.pdf *.png _site/ 2>/dev/null || true
           touch _site/.nojekyll
 
       - name: Deploy to gh-pages branch

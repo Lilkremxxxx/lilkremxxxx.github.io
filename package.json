@@ -7,7 +7,10 @@
     "dev:api": "node server/index.js",
     "db:schema": "psql \"$DATABASE_URL\" -f db/schema.sql",
     "db:migrate:content-blocks": "psql \"$DATABASE_URL\" -f db/migrations/001_add_content_blocks.sql",
-    "db:seed": "psql \"$DATABASE_URL\" -f db/seed.sql"
+    "db:seed": "psql \"$DATABASE_URL\" -f db/seed.sql",
+    "db:migrate:site-sections": "psql \"$DATABASE_URL\" -f db/migrations/002_site_sections.sql",
+    "admin:set-password": "node scripts/set-admin-password.mjs",
+    "dev:static": "node scripts/dev-static.mjs"
   },
   "dependencies": {
     "cors": "^2.8.5",
