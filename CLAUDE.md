@@ -6,7 +6,7 @@ Repo: `github.com/Lilkremxxxx/lilkremxxxx.github.io`, nhánh `main`. Thư mục 
 ## Kiến trúc (3 phần)
 
 ```
-Browser ──► GitHub Pages (static, gh-pages branch)   index.html (site) · admin/index.html (admin) · assets/
+Browser ──► GitHub Pages (static, nguồn: nhánh main /, build legacy)   index.html (site) · admin/index.html (admin) · assets/
    │
    └─fetch─► https://blog-api.verbaa.pp.ua  (Cloudflare Tunnel, unit: blog-api-verbaa-cloudflared)
                 └─► Express  server/app.js  :8787  (systemd user unit: blog-backend, chạy thẳng từ thư mục repo)
@@ -46,9 +46,9 @@ Browser ──► GitHub Pages (static, gh-pages branch)   index.html (site) · 
 - `npm run dev:static` (cổng 5500, giả lập GitHub Pages) + API ở 8787, mở `http://localhost:5500/?api=http://localhost:8787`. Chi tiết: `docs/blog-admin.md`.
 
 ### Deploy
-- Push `main` → `.github/workflows/pages.yml` copy `index.html 404.html admin assets *.pdf *.png` vào `_site` → publish nhánh `gh-pages` (force orphan).
-- `docs/` và `db/` **không** còn được deploy (từ 2026-10-17). Dù vậy repo là public — không bao giờ ghi secret vào bất kỳ file nào được commit.
-- Thêm file/thư mục frontend mới ở gốc repo (ngoài `assets/`, `admin/`) thì **phải thêm vào bước `cp` của workflow**, nếu không sẽ không được deploy.
+- **GitHub Pages đang lấy nguồn trực tiếp từ nhánh `main` (thư mục gốc, build legacy/Jekyll)** — mọi file trên `main` đều được phục vụ trên site (trừ file/thư mục bắt đầu bằng `.` hoặc `_`). Workflow `.github/workflows/pages.yml` vẫn build sang nhánh `gh-pages` nhưng **chưa được dùng** vì setting Pages chưa đổi sang `gh-pages`.
+- Repo public — không bao giờ ghi secret vào bất kỳ file nào được commit.
+- Nếu sau này đổi Pages sang nhánh `gh-pages`: file/thư mục frontend mới ở gốc repo (ngoài `assets/`, `admin/`) **phải thêm vào bước `cp` của workflow**.
 
 ## Phạm vi (tránh out of scope)
 
@@ -90,7 +90,9 @@ GSAP dùng bản vanilla qua CDN (không có skill React/Vue vì dự án không
 - Style: giữ palette tối + cyber lime + xanh, glassmorphism chủ đạo, motion GSAP, **nền 3D three.js** nhẹ sau lớp kính (có fallback tĩnh cho mobile yếu / `prefers-reduced-motion`).
 - Chủ repo **tự xử lý database** — không tự tạo lại / seed DB production.
 
-## Vấn đề đã biết (2026-10-17)
-1. **Lộ secret (đã xử lý một phần):** key admin cũ và mật khẩu Postgres từng nằm trong `docs/blog-admin.md` (public trên site + lịch sử git). Đã: thay bằng placeholder, bỏ `docs/` khỏi deploy, tạo `ADMIN_API_KEY` mới và restart backend. Còn lại (chủ repo tự làm): đổi mật khẩu Postgres; push để gh-pages xoá file cũ.
-2. **Blog đang lỗi trên production:** `/api/health` trả 500 — Postgres báo `database "nhatbang-web" does not exist`. Chủ repo tự xử lý.
-3. `blog-cloudflared.service` trong repo không phải unit đang chạy; unit thật là `blog-api-verbaa-cloudflared` (ngoài repo).
+## Trạng thái vận hành (2026-10-17)
+- Database `nhatbang-web` đã tạo lại từ `schema.sql` + `seed.sql`, owner là user riêng `nhatbang_web` (không phải superuser). Blog không còn dùng user `cloud`.
+- Mật khẩu admin lưu ở `~/.config/blog/admin-password.txt` (quyền 600, ngoài repo). Đổi bằng `npm run admin:set-password` rồi restart `blog-backend`.
+- `ADMIN_API_KEY` đã đổi; key cũ bị lộ không còn hiệu lực.
+- **Còn mở:** mật khẩu user `cloud` (superuser của container Postgres dùng chung cho nhiều dự án) từng lộ trong `docs/` và lịch sử git; container mở 5432 trên mọi địa chỉ (cả IPv6 công khai). Chủ repo quyết định cách xử lý — ngoài phạm vi repo này.
+- `blog-cloudflared.service` trong repo không phải unit đang chạy; unit thật là `blog-api-verbaa-cloudflared` (ngoài repo).
