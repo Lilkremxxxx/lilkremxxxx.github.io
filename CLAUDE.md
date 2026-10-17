@@ -94,5 +94,6 @@ GSAP dùng bản vanilla qua CDN (không có skill React/Vue vì dự án không
 - Database `nhatbang-web` đã tạo lại từ `schema.sql` + `seed.sql`, owner là user riêng `nhatbang_web` (không phải superuser). Blog không còn dùng user `cloud`.
 - Mật khẩu admin lưu ở `~/.config/blog/admin-password.txt` (quyền 600, ngoài repo). Đổi bằng `npm run admin:set-password` rồi restart `blog-backend`.
 - `ADMIN_API_KEY` đã đổi; key cũ bị lộ không còn hiệu lực.
-- **Còn mở:** mật khẩu user `cloud` (superuser của container Postgres dùng chung cho nhiều dự án) từng lộ trong `docs/` và lịch sử git; container mở 5432 trên mọi địa chỉ (cả IPv6 công khai). Chủ repo quyết định cách xử lý — ngoài phạm vi repo này.
+- Postgres (container `postgres`, `~/docker/docker-compose.yml`) chỉ còn nghe trên `127.0.0.1` và IP Tailscale `100.82.138.69` (đã bỏ cổng công khai IPv4/IPv6). User service `postgres-tailscale-guard` khởi động lại container sau khi Tailscale có IP lúc boot.
+- **Còn mở (chủ repo quyết định để sau):** mật khẩu superuser `cloud` từng lộ trong lịch sử git vẫn chưa đổi vì nhiều dự án khác dùng chung; hiện chỉ truy cập được từ máy này và tailnet.
 - `blog-cloudflared.service` trong repo không phải unit đang chạy; unit thật là `blog-api-verbaa-cloudflared` (ngoài repo).
