@@ -266,7 +266,7 @@ main {
   display: grid;
   grid-template-columns: minmax(0, 1.5fr) minmax(260px, 0.62fr);
   gap: clamp(1.5rem, 4vw, 3.5rem);
-  align-items: center;
+  align-items: end;
 }
 
 .hero__inner {

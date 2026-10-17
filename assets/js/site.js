@@ -497,7 +497,7 @@ async function handleRoute({ initial = false } = {}) {
       // Coming back from the blog: dive and morph to the section in view, then scroll takes over.
       const section = document.getElementById(route.section || state.activeSection) || $('#hero');
       state.scene?.dive();
-      state.scene?.setShape(section.dataset.shape || 'manifold');
+      state.scene?.setShape(section.dataset.shape || 'lorenz');
     }
     requestAnimationFrame(updateSceneFromScroll);
     updateNav(route.section || state.activeSection);
@@ -559,7 +559,7 @@ function observeSections() {
 
 // Where the field sits and how bright it is per section (x in world units; content side decides it).
 const SECTION_FOCUS = {
-  hero: { x: 2.3, intensity: 1 },
+  hero: { x: 1.9, intensity: 1 },
   about: { x: 1.9, intensity: 0.95 },
   project: { x: 0, intensity: 0.9 },
   skill: { x: 0, intensity: 0.9 },
@@ -594,7 +594,7 @@ function updateSceneFromScroll() {
   const next = sections[index + 1] || current;
   const progress = (center - current.offsetTop) / Math.max(current.offsetHeight, 1);
   const t = next === current ? 0 : smoothstep(0.6, 1, progress);
-  scene.scrub(current.dataset.shape || 'manifold', next.dataset.shape || 'manifold', t);
+  scene.scrub(current.dataset.shape || 'lorenz', next.dataset.shape || 'lorenz', t);
   const a = SECTION_FOCUS[current.id] || SECTION_FOCUS.hero;
   const b = SECTION_FOCUS[next.id] || a;
   scene.setFocus({ x: a.x + (b.x - a.x) * t, intensity: a.intensity + (b.intensity - a.intensity) * t });

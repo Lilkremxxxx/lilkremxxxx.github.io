@@ -18,91 +18,180 @@ function gaussian(rand) {
   return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * rand());
 }
 
-// Each builder fills `out` (Float32Array, xyz per point) deterministically.
+// Strange attractors are integrated once and sampled in trajectory order, so point i follows point i-1 along
+// the curve: the shader's travelling pulses (aOrder) then run along the real flow lines.
+function attractor(out, count, rand, { derive, dt, start, warmup = 2000, stride = 2, map, jitter = 0.012 }) {
+  let [x, y, z] = start;
+  const advance = () => {
+    const [dx, dy, dz] = derive(x, y, z);
+    x += dx * dt;
+    y += dy * dt;
+    z += dz * dt;
+  };
+  for (let i = 0; i < warmup; i += 1) advance();
+  for (let i = 0; i < count; i += 1) {
+    for (let k = 0; k < stride; k += 1) advance();
+    const [px, py, pz] = map(x, y, z);
+    out[i * 3] = px + gaussian(rand) * jitter;
+    out[i * 3 + 1] = py + gaussian(rand) * jitter;
+    out[i * 3 + 2] = pz + gaussian(rand) * jitter;
+  }
+}
+
+// Each builder fills `out` (Float32Array, xyz per point) deterministically; index order = path order.
 const SHAPES = {
-  manifold(out, count, rand) {
-    for (let i = 0; i < count; i += 1) {
-      const t = rand() * Math.PI * 2;
-      const r = 1.25 + 0.5 * Math.cos(3 * t);
-      const tube = 0.07 + rand() * 0.09;
-      out[i * 3] = r * Math.cos(2 * t) + gaussian(rand) * tube;
-      out[i * 3 + 1] = r * Math.sin(2 * t) + gaussian(rand) * tube;
-      out[i * 3 + 2] = 0.55 * Math.sin(3 * t) + gaussian(rand) * tube;
-    }
-  },
-  clusters(out, count, rand) {
-    const centers = Array.from({ length: 7 }, (_, index) => {
-      const phi = Math.acos(1 - (2 * (index + 0.5)) / 7);
-      const theta = Math.PI * (1 + Math.sqrt(5)) * index;
-      return [1.9 * Math.sin(phi) * Math.cos(theta), 1.5 * Math.cos(phi), 1.9 * Math.sin(phi) * Math.sin(theta)];
+  // Hero: the Lorenz "butterfly" — the iconic picture of a chaotic system.
+  lorenz(out, count, rand) {
+    const sigma = 10;
+    const rho = 28;
+    const beta = 8 / 3;
+    attractor(out, count, rand, {
+      derive: (x, y, z) => [sigma * (y - x), x * (rho - z) - y, x * y - beta * z],
+      // ~26 time units: enough loops to draw both wings, few enough that each trail stays crisp.
+      dt: 0.003,
+      start: [0.1, 0, 0],
+      stride: Math.max(1, Math.round(26 / (count * 0.003))),
+      map: (x, y, z) => [x / 12.5, (z - 24) / 12.5, y / 12.5],
+      jitter: 0.008
     });
-    for (let i = 0; i < count; i += 1) {
-      const c = centers[i % centers.length];
-      const spread = 0.22 + (i % 3) * 0.06;
-      out[i * 3] = c[0] + gaussian(rand) * spread;
-      out[i * 3 + 1] = c[1] + gaussian(rand) * spread;
-      out[i * 3 + 2] = c[2] + gaussian(rand) * spread;
-    }
   },
+  // About: the Aizawa attractor — a sphere threaded by a tube, soft and intricate.
+  aizawa(out, count, rand) {
+    const [a, b, c, d, e, f] = [0.95, 0.7, 0.6, 3.5, 0.25, 0.1];
+    attractor(out, count, rand, {
+      derive: (x, y, z) => [
+        (z - b) * x - d * y,
+        d * x + (z - b) * y,
+        c + a * z - (z ** 3) / 3 - (x * x + y * y) * (1 + e * z) + f * z * x ** 3
+      ],
+      dt: 0.008,
+      start: [0.1, 0, 0],
+      stride: Math.max(2, Math.round(20000 / count)),
+      map: (x, y, z) => [x * 1.45, (z - 0.55) * 1.45, y * 1.45]
+    });
+  },
+  // Skills: Thomas' cyclically symmetric attractor — dense, braided connections.
+  thomas(out, count, rand) {
+    const k = 0.19;
+    attractor(out, count, rand, {
+      derive: (x, y, z) => [Math.sin(y) - k * x, Math.sin(z) - k * y, Math.sin(x) - k * z],
+      dt: 0.05,
+      start: [1.1, 1.1, -0.01],
+      stride: Math.max(1, Math.round(380 / (count * 0.05))),
+      map: (x, y, z) => [x * 0.42, y * 0.42, z * 0.42],
+      jitter: 0.015
+    });
+  },
+  // Work: a real feed-forward net — neurons as bright knots, signals travelling along every connection.
   network(out, count, rand) {
-    const layers = [-2.3, -1.15, 0, 1.15, 2.3];
-    const radii = [0.9, 1.5, 1.7, 1.5, 0.7];
-    const nodes = Math.floor(count * 0.7);
-    for (let i = 0; i < count; i += 1) {
-      if (i < nodes) {
-        const layer = i % layers.length;
-        const angle = rand() * Math.PI * 2;
-        const radius = Math.sqrt(rand()) * radii[layer];
-        out[i * 3] = layers[layer] + gaussian(rand) * 0.04;
-        out[i * 3 + 1] = Math.sin(angle) * radius;
-        out[i * 3 + 2] = Math.cos(angle) * radius;
-      } else {
-        // Points strung between adjacent layers read as connections.
-        const layer = Math.floor(rand() * (layers.length - 1));
-        const a1 = rand() * Math.PI * 2;
-        const a2 = rand() * Math.PI * 2;
-        const r1 = Math.sqrt(rand()) * radii[layer];
-        const r2 = Math.sqrt(rand()) * radii[layer + 1];
-        const k = rand();
-        out[i * 3] = layers[layer] + (layers[layer + 1] - layers[layer]) * k;
-        out[i * 3 + 1] = Math.sin(a1) * r1 * (1 - k) + Math.sin(a2) * r2 * k;
-        out[i * 3 + 2] = Math.cos(a1) * r1 * (1 - k) + Math.cos(a2) * r2 * k;
+    const layerX = [-2.6, -1.3, 0, 1.3, 2.6];
+    const sizes = [4, 6, 7, 6, 3];
+    const nodes = layerX.map((x, layer) => Array.from({ length: sizes[layer] }, (_, n) => {
+      const y = (n - (sizes[layer] - 1) / 2) * 0.55;
+      return [x, y, Math.sin(n * 1.7 + layer) * 0.35];
+    }));
+    const edges = [];
+    for (let layer = 0; layer < nodes.length - 1; layer += 1) {
+      nodes[layer].forEach((from) => nodes[layer + 1].forEach((to) => edges.push([from, to])));
+    }
+    const allNodes = nodes.flat();
+    const nodePoints = Math.floor(count * 0.3);
+    let i = 0;
+    for (; i < nodePoints; i += 1) {
+      const node = allNodes[i % allNodes.length];
+      out[i * 3] = node[0] + gaussian(rand) * 0.06;
+      out[i * 3 + 1] = node[1] + gaussian(rand) * 0.06;
+      out[i * 3 + 2] = node[2] + gaussian(rand) * 0.06;
+    }
+    const perEdge = Math.max(2, Math.floor((count - nodePoints) / edges.length));
+    for (let e = 0; e < edges.length && i < count; e += 1) {
+      const [from, to] = edges[e];
+      for (let j = 0; j < perEdge && i < count; j += 1, i += 1) {
+        const t = j / perEdge;
+        out[i * 3] = from[0] + (to[0] - from[0]) * t + gaussian(rand) * 0.008;
+        out[i * 3 + 1] = from[1] + (to[1] - from[1]) * t + gaussian(rand) * 0.008;
+        out[i * 3 + 2] = from[2] + (to[2] - from[2]) * t + gaussian(rand) * 0.008;
       }
     }
-  },
-  lattice(out, count, rand) {
-    const side = Math.ceil(Math.cbrt(count));
-    const step = 3.8 / side;
-    for (let i = 0; i < count; i += 1) {
-      const x = i % side;
-      const y = Math.floor(i / side) % side;
-      const z = Math.floor(i / (side * side));
-      out[i * 3] = (x - side / 2) * step + gaussian(rand) * 0.02;
-      out[i * 3 + 1] = (y - side / 2) * step * 0.8 + gaussian(rand) * 0.02;
-      out[i * 3 + 2] = (z - side / 2) * step + gaussian(rand) * 0.02;
+    for (; i < count; i += 1) {
+      const node = allNodes[i % allNodes.length];
+      out[i * 3] = node[0] + gaussian(rand) * 0.1;
+      out[i * 3 + 1] = node[1] + gaussian(rand) * 0.1;
+      out[i * 3 + 2] = node[2] + gaussian(rand) * 0.1;
     }
   },
-  spiral(out, count, rand) {
-    const tilt = 1.05;
+  // Education: a horizontal DNA double helix with base-pair rungs.
+  helix(out, count, rand) {
+    const strandPoints = Math.floor(count * 0.36);
+    const rungs = 34;
+    const length = 6.4;
+    let i = 0;
+    for (let strand = 0; strand < 2; strand += 1) {
+      for (let j = 0; j < strandPoints; j += 1, i += 1) {
+        const x = -length / 2 + (j / strandPoints) * length;
+        const angle = x * 1.55 + strand * Math.PI;
+        out[i * 3] = x + gaussian(rand) * 0.01;
+        out[i * 3 + 1] = Math.sin(angle) * 1.0 + gaussian(rand) * 0.035;
+        out[i * 3 + 2] = Math.cos(angle) * 1.0 + gaussian(rand) * 0.035;
+      }
+    }
+    const perRung = Math.max(2, Math.floor((count - i) / rungs));
+    for (let r = 0; r < rungs && i < count; r += 1) {
+      const x = -length / 2 + ((r + 0.5) / rungs) * length;
+      const angle = x * 1.55;
+      for (let j = 0; j < perRung && i < count; j += 1, i += 1) {
+        const t = j / perRung * 2 - 1;
+        out[i * 3] = x + gaussian(rand) * 0.012;
+        out[i * 3 + 1] = Math.sin(angle) * t + gaussian(rand) * 0.012;
+        out[i * 3 + 2] = Math.cos(angle) * t + gaussian(rand) * 0.012;
+      }
+    }
+    for (; i < count; i += 1) {
+      out[i * 3] = (rand() - 0.5) * length;
+      out[i * 3 + 1] = gaussian(rand) * 0.04;
+      out[i * 3 + 2] = gaussian(rand) * 0.04;
+    }
+  },
+  // Writing: a four-armed galaxy with a bright bulge, tilted toward the viewer.
+  galaxy(out, count, rand) {
+    const tilt = 0.55;
+    const bulge = Math.floor(count * 0.18);
     for (let i = 0; i < count; i += 1) {
-      const arm = i % 3;
-      const r = Math.pow(rand(), 0.7) * 2.7;
-      const angle = (arm * Math.PI * 2) / 3 + r * 1.7 + gaussian(rand) * 0.18;
-      const x = Math.cos(angle) * r;
-      const z = Math.sin(angle) * r;
-      const y = gaussian(rand) * 0.12 * (1.2 - r / 3);
+      let x;
+      let y;
+      let z;
+      if (i < bulge) {
+        x = gaussian(rand) * 0.32;
+        y = gaussian(rand) * 0.18;
+        z = gaussian(rand) * 0.32;
+      } else {
+        const arm = i % 4;
+        const t = ((i - bulge) / (count - bulge));
+        const r = 0.3 + Math.pow(t, 0.8) * 2.9;
+        const angle = (arm * Math.PI) / 2 + Math.log(r + 0.4) * 2.6 + gaussian(rand) * (0.08 + 0.04 * r);
+        x = Math.cos(angle) * r + gaussian(rand) * 0.05;
+        z = Math.sin(angle) * r + gaussian(rand) * 0.05;
+        y = gaussian(rand) * 0.06 * (1.4 - r / 3.2);
+      }
       out[i * 3] = x;
       out[i * 3 + 1] = y * Math.cos(tilt) - z * Math.sin(tilt);
       out[i * 3 + 2] = y * Math.sin(tilt) + z * Math.cos(tilt);
     }
   },
-  plane(out, count, rand) {
+  // Contact: a calm interference surface, rows ordered left to right.
+  waves(out, count, rand) {
+    const cols = Math.ceil(Math.sqrt(count * 1.6));
+    const rows = Math.ceil(count / cols);
     for (let i = 0; i < count; i += 1) {
-      const x = (rand() - 0.5) * 9;
-      const z = (rand() - 0.5) * 6;
-      out[i * 3] = x;
-      out[i * 3 + 1] = -1.3 + 0.28 * Math.sin(x * 1.1) * Math.cos(z * 1.3);
-      out[i * 3 + 2] = z;
+      const row = i % rows;
+      const col = Math.floor(i / rows);
+      const x = -4.6 + (col / cols) * 9.2;
+      const z = -2.6 + (row / rows) * 5.2;
+      const h = 0.38 * Math.sin(1.25 * x + 0.6 * z) * Math.cos(0.7 * z - 0.3 * x) + gaussian(rand) * 0.01;
+      const tilt = 0.55;
+      out[i * 3] = x + gaussian(rand) * 0.01;
+      out[i * 3 + 1] = -0.35 + h * Math.cos(tilt) + z * Math.sin(tilt);
+      out[i * 3 + 2] = -h * Math.sin(tilt) + z * Math.cos(tilt);
     }
   },
   haze(out, count, rand) {
@@ -130,6 +219,7 @@ const VERTEX = /* glsl */ `
   attribute vec3 aTo;
   attribute float aSeed;
   attribute float aLime;
+  attribute float aOrder;
   uniform float uTime;
   uniform float uMix;
   uniform float uSize;
@@ -156,7 +246,16 @@ const VERTEX = /* glsl */ `
     vec3 p = mix(aFrom, aTo, local) * uScale;
     p += normalize(p + 0.0001) * sin(local * 3.14159) * 0.45;
     float t = uTime * 0.25 + aSeed * 6.2831;
-    p += vec3(sin(t + p.y * 1.7), cos(t * 0.9 + p.x * 1.3), sin(t * 1.1 + p.z * 1.5)) * 0.05;
+    p += vec3(sin(t + p.y * 1.7), cos(t * 0.9 + p.x * 1.3), sin(t * 1.1 + p.z * 1.5)) * 0.018;
+
+    // Breathing twist: the core turns further than the rim, then eases back (never winds up).
+    float twist = 0.22 * sin(uTime * 0.35) / (0.8 + length(p.xz));
+    float cs = cos(twist);
+    float sn = sin(twist);
+    p.xz = mat2(cs, -sn, sn, cs) * p.xz;
+
+    // Data pulses travelling along the path order (attractor flow lines, network edges, DNA strands).
+    float pulse = smoothstep(0.968, 1.0, fract(aOrder * 9.0 - uTime * 0.07));
 
     // Forward pass: a signal front sweeping along x lights and lifts the points it crosses.
     float wave = uWaveAmp * exp(-pow((p.x - uWaveFront) * 2.2, 2.0));
@@ -179,7 +278,7 @@ const VERTEX = /* glsl */ `
     mv.xy += dir * (mouseF * 0.6 + ripple * 0.4) * (-mv.z) * 0.12;
     gl_Position = projectionMatrix * mv;
 
-    float glow = clamp(wave + mouseF * 0.9 + ripple, 0.0, 1.5);
+    float glow = clamp(wave + mouseF * 0.9 + ripple + pulse * 0.8, 0.0, 1.6);
     float size = uSize * (aLime > 0.5 ? 1.8 : 1.0) * (0.6 + aSeed * 0.8) * (1.0 + glow * 0.9);
     gl_PointSize = size * uPixelRatio * (6.0 / -mv.z);
     vLime = aLime;
@@ -246,9 +345,11 @@ export async function startScene(canvas, { reducedMotion = false } = {}) {
   const to = new Float32Array(count * 3);
   const seeds = new Float32Array(count);
   const lime = new Float32Array(count);
+  const order = new Float32Array(count);
   for (let i = 0; i < count; i += 1) {
     seeds[i] = rand();
     lime[i] = rand() < 0.12 ? 1 : 0;
+    order[i] = i / count;
   }
   const shapeCache = new Map();
   const shapeBuffer = (name) => {
@@ -266,6 +367,7 @@ export async function startScene(canvas, { reducedMotion = false } = {}) {
   geometry.setAttribute('aTo', new THREE.BufferAttribute(to, 3));
   geometry.setAttribute('aSeed', new THREE.BufferAttribute(seeds, 1));
   geometry.setAttribute('aLime', new THREE.BufferAttribute(lime, 1));
+  geometry.setAttribute('aOrder', new THREE.BufferAttribute(order, 1));
   geometry.boundingSphere = new THREE.Sphere(new THREE.Vector3(), 12);
 
   const uniforms = {
@@ -300,8 +402,8 @@ export async function startScene(canvas, { reducedMotion = false } = {}) {
 
   const state = {
     mode: 'tween',
-    pair: ['core', 'manifold'],
-    shape: 'manifold',
+    pair: ['core', 'lorenz'],
+    shape: 'lorenz',
     tweenStart: 0,
     tweenDuration: 1700,
     tweening: false,
@@ -401,13 +503,13 @@ export async function startScene(canvas, { reducedMotion = false } = {}) {
       const dolly = (now - state.dollyStart) / 1100;
       camera.position.z = state.baseZ - (dolly >= 0 && dolly <= 1 ? Math.sin(Math.PI * dolly) * 1.6 : 0);
 
-      state.spin += dt * 0.05;
+      state.spin = Math.sin(now / 1000 * 0.12) * 0.32;
       state.tilt.x += (state.pointer.y * 0.16 - state.tilt.x) * (1 - Math.exp(-dt * 3));
       state.tilt.y += (state.pointer.x * 0.22 - state.tilt.y) * (1 - Math.exp(-dt * 3));
     } else {
       camera.position.z = state.baseZ;
     }
-    group.rotation.set(state.tilt.x + 0.15, state.spin + state.tilt.y, 0);
+    group.rotation.set(state.tilt.x + 0.08, state.spin + state.tilt.y, 0);
     renderer.render(scene, camera);
   }
 
@@ -470,10 +572,10 @@ export async function startScene(canvas, { reducedMotion = false } = {}) {
   window.addEventListener('resize', resize);
 
   resize();
-  // Boot: the field unfolds from a dense core into the manifold.
-  setPair('core', 'manifold');
+  // Boot: the field unfolds from a dense core into the Lorenz attractor.
+  setPair('core', 'lorenz');
   if (reducedMotion) {
-    setPair('manifold', 'manifold');
+    setPair('lorenz', 'lorenz');
     uniforms.uIntensity.value = 1;
     state.mode = 'scrub-ready';
     renderFrame(performance.now());
